@@ -1,0 +1,16 @@
+{
+ "courses": [
+  {
+   "key": "shibuya",
+   "name": "渋谷"
+  },
+  {
+   "key": "ikebukuro",
+   "name": "池袋"
+  },
+  {
+   "key": "shinjuku",
+   "name": "新宿"
+  }
+ ]
+}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v6.3（道路と線路のめり込みを修正）</title>
+<title>パルクール試作 v6.4（線路と建物のめり込みを再修正）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -1321,6 +1321,17 @@ function buildRailway() {
   const inBldg = (x, z, pad) => tallPts.some(c =>
     x > c.minX - pad && x < c.maxX + pad && z > c.minZ - pad && z < c.maxZ + pad &&
     (pointInPoly(x, z, c.pts) || (pad > 0 && (pointInPoly(x + pad, z, c.pts) || pointInPoly(x - pad, z, c.pts) || pointInPoly(x, z + pad, c.pts) || pointInPoly(x, z - pad, c.pts)))));
+  // 点から最も近い建物までの符号付き余白（内側は負）
+  const railClear = (x, z) => {
+    let best = Infinity;
+    for (const c of tallPts) {
+      if (x < c.minX - 14 || x > c.maxX + 14 || z < c.minZ - 14 || z > c.maxZ + 14) continue;
+      const r = distToPoly(x, z, c.pts);
+      const s = r.inside ? -r.d : r.d;
+      if (s < best) best = s;
+    }
+    return best;
+  };
   const ballastMat = new THREE.MeshLambertMaterial({ color: 0x3f3f42 });
   const viaMat = new THREE.MeshLambertMaterial({ color: 0x9aa0a3 });
   const steelMat = new THREE.MeshLambertMaterial({ color: 0x9aa2ab });
@@ -1342,6 +1353,37 @@ function buildRailway() {
       }
     }
     path.push([rawPath[rawPath.length - 1][0], rawPath[rawPath.length - 1][1], 0]);
+  }
+  // 線路を建物から離す: 高架の端(3.9m)と電車の端(4.05m)が壁に当たらないよう、余白4.25mを確保してパス自体をずらす
+  {
+    const nearest = (x, z) => {
+      let best = Infinity, bx = x, bz = z, ins = false;
+      for (const c of tallPts) {
+        if (x < c.minX - 14 || x > c.maxX + 14 || z < c.minZ - 14 || z > c.maxZ + 14) continue;
+        const r = distToPoly(x, z, c.pts);
+        const s = r.inside ? -r.d : r.d;
+        if (s < best) { best = s; bx = r.cx; bz = r.cz; ins = r.inside; }
+      }
+      return { s: best, cx: bx, cz: bz, inside: ins };
+    };
+    for (let iter = 0; iter < 7; iter++) {
+      let moved = 0;
+      for (const p of path) {
+        const nr = nearest(p[0], p[1]);
+        if (nr.inside || nr.s >= 4.25) continue; // 建物の内側（駅ビル等）はトンネル扱いのまま動かさない
+        let dx = p[0] - nr.cx, dz = p[1] - nr.cz;
+        const l = Math.hypot(dx, dz);
+        if (l < 1e-4) continue;
+        const push = Math.min(4.25 - nr.s, 1.1);
+        p[0] += dx / l * push; p[1] += dz / l * push;
+        moved++;
+      }
+      for (let i = 1; i + 1 < path.length; i++) { // 折れを均す
+        path[i][0] = path[i][0] * 0.5 + (path[i - 1][0] + path[i + 1][0]) * 0.25;
+        path[i][1] = path[i][1] * 0.5 + (path[i - 1][1] + path[i + 1][1]) * 0.25;
+      }
+      if (!moved) break;
+    }
   }
   // パスの累積距離とサンプリング（高さは高架で統一）
   const cum = [0];
@@ -1365,17 +1407,22 @@ function buildRailway() {
     let st0 = -1;
     for (let s = 0; s <= total; s += 2) {
       const p = sample(s);
-      const inside = inBldg(p.x, p.z, 1.2);
+      const inside = railClear(p.x, p.z) < 4.1; // 電車の端が壁にかかる区間
       if (inside && st0 < 0) st0 = s;
       if (!inside && st0 >= 0) { hideInt.push([st0, s]); st0 = -1; }
     }
     if (st0 >= 0) hideInt.push([st0, total]);
+    for (const iv of hideInt) { iv[0] = Math.max(0, iv[0] - 11); iv[1] = Math.min(total, iv[1] + 11); } // 車両の前後も隠す
+    hideInt.sort((a, b) => a[0] - b[0]);
+    for (let i = hideInt.length - 1; i > 0; i--) {
+      if (hideInt[i][0] <= hideInt[i - 1][1]) { hideInt[i - 1][1] = Math.max(hideInt[i - 1][1], hideInt[i][1]); hideInt.splice(i, 1); }
+    }
   }
   // 高架橋・バラスト・レール・枕木（複線）
   let sleepers = 0, pierDist = 0;
   for (let s = 0; s < total - 1; s += 6) {
-    const midP = sample(Math.min(total, s + 3));
-    if (inBldg(midP.x, midP.z, 0)) continue; // 建物の内側は高架を描かない
+    const cA = sample(s), cB = sample(Math.min(total, s + 3)), cC = sample(Math.min(total, s + 6));
+    if (railClear(cA.x, cA.z) < 3.55 || railClear(cB.x, cB.z) < 3.55 || railClear(cC.x, cC.z) < 3.55) continue; // 高架の端が建物にかかる区間は描かない
     const a = sample(s), b = sample(Math.min(total, s + 6.5));
     const len = Math.hypot(b.x - a.x, b.z - a.z);
     if (len < 0.5) continue;

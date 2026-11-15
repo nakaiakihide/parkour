@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v6.9（全フォントをロビーのフォントに統一）</title>
+<title>パルクール試作 v6.10（コース選択は選んでから開始／一時停止をメニュー化）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -107,6 +107,9 @@
   html, body, #app, #app * { font-family:'Montserrat','Noto Sans JP',sans-serif !important; }
   .course-btn, .course-title, .btn, #time, #score, #resTime, #toast, #msg, #cpdist, #courseBtn, #btnPause, #btnSelectBack { font-style:italic; }
   .course-btn, .course-title, #time, #resTime { font-weight:900; }
+
+  #btnStartSelected { background:linear-gradient(180deg,#ffe14d,#ffc400); color:#1a1a1a; border-color:#fff3b0; font-size:19px; font-weight:900; }
+  #pauseMenu { position:absolute; inset:0; z-index:34; display:none; align-items:center; justify-content:center; background:rgba(5,10,16,.55); }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -136,15 +139,23 @@
 <div id="courseSelect">
   <div class="sel-card">
     <div class="course-title">🗺 コース選択</div>
-    <div class="course-sub">走るコースを選んでください（タップでスタート）</div>
+    <div class="course-sub">コースを選んで「ラン開始」を押してください</div>
     <button class="course-btn" id="btnShibuya">🗼 渋谷<br><small>スクランブル交差点・屋根コース</small></button>
     <button class="course-btn" id="btnIkebukuro">🌃 池袋<br><small>駅前・高層ビル街コース</small></button>
     <button class="course-btn" id="btnShinjuku">🚃 新宿<br><small>東口・歌舞伎町コース</small></button>
+    <button class="course-btn" id="btnStartSelected">▶ ラン開始</button>
     <button id="btnSelectBack">← もどる</button>
   </div>
 </div>
 <button id="courseBtn">🗺 コース</button>
-<button id="btnPause">⏸ 一時停止</button><div id="pauseLabel">⏸ 一時停止中</div>
+<button id="btnPause">⏸ 一時停止</button>
+<div id="pauseMenu">
+  <div class="course-card">
+    <div class="course-title">⏸ 一時停止</div>
+    <button class="course-btn" id="btnResume">▶ 続ける</button>
+    <button class="course-btn" id="btnToLobby">🏠 ロビーに戻る</button>
+  </div>
+</div>
 <div id="toast"></div>
 <div id="result">
   <div class="course-card">
@@ -2913,7 +2924,7 @@ async function buildCourse(key) {
   flyoverArmed = true; // コースに入ったら、まずルートを一望する
   reset();
   if (lobbyMode) fixLobbyPlayer();
-  if (sub) sub.textContent = 'コースを選んでスタート（ゴースト・ベストはコース別）';
+  if (sub) sub.textContent = 'コースを選んで「ラン開始」（ゴースト・ベストはコース別）';
   document.getElementById('courseName').textContent = COURSE_NAMES[key] || key;
   document.getElementById('btnShibuya').classList.toggle('sel', key === 'shibuya');
   document.getElementById('btnIkebukuro').classList.toggle('sel', key === 'ikebukuro');
@@ -3186,13 +3197,18 @@ document.getElementById('btnCourse2').addEventListener('click', () => {
 });
 
 // ---- 一時停止 ----
-const pauseLabel = document.getElementById('pauseLabel');
+const pauseMenu = document.getElementById('pauseMenu');
 function setPaused(v) {
   paused = v;
-  document.getElementById('btnPause').textContent = v ? '▶ 再開' : '⏸ 一時停止';
-  pauseLabel.style.display = v ? 'block' : 'none';
+  pauseMenu.style.display = v ? 'flex' : 'none';
 }
-document.getElementById('btnPause').addEventListener('click', () => setPaused(!paused));
+document.getElementById('btnPause').addEventListener('click', () => setPaused(true));
+document.getElementById('btnResume').addEventListener('click', () => setPaused(false));
+document.getElementById('btnToLobby').addEventListener('click', () => {
+  setPaused(false);
+  reset();
+  setLobby(true);
+});
 document.addEventListener('visibilitychange', () => { if (document.hidden && started && !finished) setPaused(true); });
 
 // ---- コースボタンのベスト表示と「次のコース」 ----
@@ -3265,9 +3281,22 @@ async function selectAndStart(c) {
   setLobby(false);
   if (flyover) showToast('ルート確認中…（画面タップでスキップ）');
 }
-document.getElementById('btnShibuya').addEventListener('click', () => selectAndStart('shibuya'));
-document.getElementById('btnIkebukuro').addEventListener('click', () => selectAndStart('ikebukuro'));
-document.getElementById('btnShinjuku').addEventListener('click', () => selectAndStart('shinjuku'));
+async function selectCourse(c) {
+  if (building || c === COURSE) return;
+  store.set('parkour-course', c);
+  await buildCourse(c);
+  refreshCourseBests();
+}
+function startSelected() {
+  if (building || !built) return;
+  openSelect(false);
+  setLobby(false);
+  if (flyover) showToast('ルート確認中…（画面タップでスキップ）');
+}
+document.getElementById('btnShibuya').addEventListener('click', () => selectCourse('shibuya'));
+document.getElementById('btnIkebukuro').addEventListener('click', () => selectCourse('ikebukuro'));
+document.getElementById('btnShinjuku').addEventListener('click', () => selectCourse('shinjuku'));
+document.getElementById('btnStartSelected').addEventListener('click', startSelected);
 document.getElementById('courseBtn').addEventListener('click', () => { flyover = null; setLobby(true); });
 document.getElementById('btnStartRun').addEventListener('click', () => { if (!building && built) openSelect(true); });
 for (const id of ['btnLobbyCourses', 'btnLobbyCourseSelect']) document.getElementById(id).addEventListener('click', () => document.getElementById('btnStartRun').click());

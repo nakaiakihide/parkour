@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v3.6（ヒントは初回プレイだけ）</title>
+<title>パルクール試作 v3.7（スタート前のルート一望カメラ）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -874,6 +874,7 @@ let coyote = 0; // コヨーテタイム: 地面を離れた直後のジャン�
 let rollBuf = 0; // ロールの先行入力バッファ（タイミング受け身）
 let hintFlags = {}; // 状況ヒントを出したかどうか（コースごとにリセット）
 let tutoredNow = false; // そのコースの初回プレイ（チュートリアル扱い）が終わったか
+let flyover = null, flyoverArmed = false; // スタート前のルート一望カメラ
 let stepTick = 0;
 let slideDirX = 0, slideDirZ = -1;
 let wantJump = false, wantSlide = false, wantDash = false;
@@ -1232,6 +1233,19 @@ function reset() {
   cps.forEach(c => { c.done = false; c.mesh.visible = true; });
   hintFlags = {};
   tutoredNow = !!store.get(KEY_BASE + '-tutored');
+  flyover = null;
+  if (flyoverArmed) {
+    flyoverArmed = false;
+    const wps = [{ x: spawn.x, z: spawn.z, top: spawn.roof ? spawn.roof.top : 0 }, ...cps.map(c => ({ x: c.x, z: c.z, top: c.top }))];
+    const legs = []; let acc = 0;
+    for (let i = 0; i < wps.length - 1; i++) {
+      const d = Math.hypot(wps[i + 1].x - wps[i].x, wps[i + 1].z - wps[i].z);
+      const lt = Math.min(2.2, Math.max(0.9, d / 28));
+      legs.push({ a: wps[i], b: wps[i + 1], t0: acc, t1: acc + lt });
+      acc += lt;
+    }
+    if (legs.length) { flyover = { t: 0, dur: acc, legs }; showToast('ルート確認中…（操作するとスタート）'); }
+  }
   updateCpMarkers();
   document.getElementById('cp').textContent = '0 / ' + cps.length;
   document.getElementById('result').style.display = 'none';
@@ -1280,6 +1294,28 @@ function tryWallKick() {
 
 function step(dt) {
   if (mapOpen) { if (started && !finished) startTime += dt * 1000; return; } // 全体マップを開いている間はタイマーを止める
+  // スタート前のルート一望カメラ: 順路の上空を流れる。操作されたら即スタート
+  if (flyover) {
+    if (wantJump || wantSlide || wantDash || Math.hypot(joy.x, joy.y) > 0.3 || keys.Space || keys.KeyW) { flyover = null; return; }
+    flyover.t += dt;
+    if (flyover.t >= flyover.dur) { flyover = null; return; }
+    const posAt = (tt) => {
+      const t = Math.max(0, Math.min(flyover.dur, tt));
+      for (const leg of flyover.legs) {
+        if (t <= leg.t1 || leg === flyover.legs[flyover.legs.length - 1]) {
+          const u = Math.min(1, Math.max(0, (t - leg.t0) / (leg.t1 - leg.t0)));
+          const s = u * u * (3 - 2 * u);
+          return { x: leg.a.x + (leg.b.x - leg.a.x) * s, y: leg.a.top + (leg.b.top - leg.a.top) * s, z: leg.a.z + (leg.b.z - leg.a.z) * s };
+        }
+      }
+      const last = flyover.legs[flyover.legs.length - 1].b;
+      return { x: last.x, y: last.top, z: last.z };
+    };
+    const fp0 = posAt(flyover.t), fp1 = posAt(flyover.t + 1.1);
+    camera.position.set(fp0.x, fp0.y + 7, fp0.z);
+    camera.lookAt(fp1.x, fp1.y + 1.2, fp1.z);
+    return;
+  }
   stepTick++;
   const speed = dashTime > 0 ? 13 : 10; // 現実の走速×1.5（通常10、スプリント13）
   // 入力ベクトル（キーボード＋スティック合算）
@@ -1783,6 +1819,7 @@ async function buildCourse(key) {
   placeCheckpoints();
   addProps();
   buildStaticMap();
+  flyoverArmed = true; // コースに入ったら、まずルートを一望する
   reset();
   if (sub) sub.textContent = 'コースを選んでスタート（ゴースト・ベストはコース別）';
   document.getElementById('courseName').textContent = key === 'hibari' ? 'ひばりヶ丘' : '渋谷';

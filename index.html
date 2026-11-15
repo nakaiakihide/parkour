@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v4.2（オーブとカメラアシストを撤去）</title>
+<title>パルクール試作 v4.3（v4.2の読み込みエラー修正）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -880,6 +880,8 @@ let flyover = null, flyoverArmed = false; // スタート前のルート一望�
 // 一望演出は画面のどこをタップしても、キー入力でも即スキップできる
 addEventListener('pointerdown', () => { if (flyover) flyover = null; });
 addEventListener('keydown', () => { if (flyover) flyover = null; });
+let score = 0, combo = 0, comboT = 0, bestCombo = 0, trickCd = {}; // コンボスコア
+let jumpCutPending = false, jumpCutDone = true, airSteps = 0; // 可変ジャンプ（長押しで高く）
 function updateScoreHud() {
   const el = document.getElementById('score');
   if (el) el.textContent = score.toLocaleString() + (combo > 1 ? '（' + combo + 'コンボ）' : '');

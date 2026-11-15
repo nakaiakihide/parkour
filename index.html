@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v4.1（ルート一望をタップでスキップ）</title>
+<title>パルクール試作 v4.2（オーブとカメラアシストを撤去）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -93,7 +93,7 @@
 </div>
 <canvas id="map" width="176" height="176"></canvas>
 <div id="bigmap"><canvas id="bigmapCanvas" width="900" height="900"></canvas><div id="bigmapClose">✕ 閉じる</div><div class="mapbtn" id="bigmapHere">◎ 現在地</div><div class="mapbtn" id="bigmapZoomIn">＋</div><div class="mapbtn" id="bigmapZoomOut">−</div></div>
-<div id="mapInfo">【<span id="courseName">渋谷</span>】 ⏱ <span id="time">0.00</span>秒　CP <span id="cp">0 / 5</span><br>次のCPまで <span id="cpdist">—</span><br>スコア <span id="score">0</span>　◆ <span id="orbs">0/0</span></div>
+<div id="mapInfo">【<span id="courseName">渋谷</span>】 ⏱ <span id="time">0.00</span>秒　CP <span id="cp">0 / 5</span><br>次のCPまで <span id="cpdist">—</span><br>スコア <span id="score">0</span></div>
 <div id="msg">屋根の上からスタート！ベランダからも登れる。狭い隙間では空中で壁のそばでジャンプ連打＝壁キックで高い所まで登れる。左上の地図をタップすると全体マップが開く</div>
 <div id="joyBase"></div><div id="joyKnob"></div>
 <div class="btn" id="btnJump">ジャンプ</div>
@@ -863,7 +863,6 @@ addEventListener('error', e => {
 
 // ---- カメラ（視点）状態 ----
 let camYaw = 0;
-let camTouchT = -9; // 最後にカメラを手動操作した時刻（追随アシストの判定用）
 let fallLookSm = 0; // 落下中にカメラが見下ろし気味になる量（なめらか補間）            // 初期は -Z 方向（交差点・センター街方面）を向く
 let camPitch = 0.32;       // 少し見下ろし
 let facing = Math.PI;      // プレイヤーの向き
@@ -881,55 +880,6 @@ let flyover = null, flyoverArmed = false; // スタート前のルート一望�
 // 一望演出は画面のどこをタップしても、キー入力でも即スキップできる
 addEventListener('pointerdown', () => { if (flyover) flyover = null; });
 addEventListener('keydown', () => { if (flyover) flyover = null; });
-const orbs = [];
-let orbsGot = 0;
-const orbGeo = new THREE.SphereGeometry(0.38, 14, 10);
-const orbMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
-function updateOrbHud() {
-  const el = document.getElementById('orbs');
-  if (el) el.textContent = orbsGot + '/' + orbs.length;
-}
-function placeOrbs() {
-  orbs.length = 0; orbsGot = 0;
-  const addOrb = (x, y, z) => {
-    const m = new THREE.Mesh(orbGeo, orbMat);
-    m.position.set(x, y, z);
-    addCourseObject(m);
-    orbs.push({ mesh: m, x, z, baseY: y, phase: Math.random() * 6.28, taken: false });
-  };
-  // 順路沿い: スタート→CPの空中ラインに弧を描いて配置（ジャンプで拾わせる）
-  const pts = [{ x: spawn.x, z: spawn.z, top: spawn.roof ? spawn.roof.top : 0 }, ...cps.map(c => ({ x: c.x, z: c.z, top: c.top }))];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const a = pts[i], b = pts[i + 1];
-    const L = Math.hypot(b.x - a.x, b.z - a.z);
-    const n = Math.max(1, Math.min(6, Math.round(L / 16)));
-    for (let j = 1; j <= n; j++) {
-      const t = j / (n + 1);
-      addOrb(a.x + (b.x - a.x) * t, a.top + (b.top - a.top) * t + 1.5 + Math.sin(t * Math.PI) * Math.min(2.2, L * 0.04), a.z + (b.z - a.z) * t);
-    }
-  }
-  // 寄り道: CPでない到達可能な屋根にも置く（探索のごほうび）
-  const extra = [...reachableSet].filter(c => {
-    if (c.prop || c.aux || c.top > 14 || c === spawn.roof) return false;
-    const ip = interiorPoint(c);
-    return cps.every(cp => Math.hypot(cp.x - ip.x, cp.z - ip.z) > 5);
-  });
-  extra.sort((p, q) => {
-    const dp = Math.hypot((p.minX + p.maxX) / 2 - spawn.x, (p.minZ + p.maxZ) / 2 - spawn.z);
-    const dq = Math.hypot((q.minX + q.maxX) / 2 - spawn.x, (q.minZ + q.maxZ) / 2 - spawn.z);
-    return dq - dp;
-  });
-  const stepN = Math.max(1, Math.floor(extra.length / 6));
-  let added = 0;
-  for (let i = 0; i < extra.length && added < 6; i += stepN) {
-    const ip = interiorPoint(extra[i]);
-    addOrb(ip.x, extra[i].top + 1.3, ip.z);
-    added++;
-  }
-  updateOrbHud();
-}
-let score = 0, combo = 0, comboT = 0, bestCombo = 0, trickCd = {}; // コンボスコア
-let jumpCutPending = false, jumpCutDone = true, airSteps = 0; // 可変ジャンプ（長押しで高く）
 function updateScoreHud() {
   const el = document.getElementById('score');
   if (el) el.textContent = score.toLocaleString() + (combo > 1 ? '（' + combo + 'コンボ）' : '');
@@ -1004,7 +954,6 @@ addEventListener('pointermove', e => {
     camYaw -= (g.x - look.lx) * 0.0052;
     camPitch += (g.y - look.ly) * 0.0052;
     camPitch = Math.max(-0.1, Math.min(1.1, camPitch));
-    camTouchT = performance.now() / 1000;
     look.lx = g.x; look.ly = g.y;
   }
 });
@@ -1056,7 +1005,6 @@ const seClimb = () => { tone(500, 700, 0.06, 'square', 0.035); tone(720, 980, 0.
 const seLand = () => tone(140, 70, 0.08, 'sine', 0.06);
 const seWall = () => tone(320, 230, 0.1, 'sawtooth', 0.018);
 const seCP = () => { tone(880, 880, 0.08, 'triangle', 0.05); tone(1174, 1174, 0.08, 'triangle', 0.05, 0.08); tone(1568, 1568, 0.13, 'triangle', 0.05, 0.16); };
-const seOrb = () => tone(1180, 1560, 0.09, 'sine', 0.09);
 const seGoal = () => { [660, 880, 1108, 1318, 1760].forEach((f, i) => tone(f, f, 0.12, 'triangle', 0.05, i * 0.09)); };
 // 風切り音: 落下が速いほど強く・高くなるノイズ（受け身のタイミングを耳で掴むため）
 let windNodes = null, windLevel = 0;
@@ -1307,8 +1255,6 @@ function reset() {
   tutoredNow = !!store.get(KEY_BASE + '-tutored');
   flyover = null;
   score = 0; combo = 0; comboT = 0; bestCombo = 0; trickCd = {}; jumpCutPending = false; jumpCutDone = true; updateScoreHud();
-  for (const o of orbs) { o.taken = false; o.mesh.visible = true; }
-  orbsGot = 0; updateOrbHud();
   if (flyoverArmed) {
     flyoverArmed = false;
     const wps = [{ x: spawn.x, z: spawn.z, top: spawn.roof ? spawn.roof.top : 0 }, ...cps.map(c => ({ x: c.x, z: c.z, top: c.top }))];
@@ -1843,14 +1789,6 @@ function step(dt) {
   // 落下中はカメラが少し見下ろし気味になって、着地点が見える
   const fallTarget = (!onGround && vel.y < -5) ? Math.min(1, (-vel.y - 5) / 12) : 0;
   fallLookSm += (fallTarget - fallLookSm) * Math.min(1, dt * 5);
-  // カメラ追随アシスト: 走行中にカメラ操作が途切れたら、背後へゆるやかに回り込む
-  const hSpdA = Math.hypot(vel.x, vel.z);
-  if (started && !finished && hSpdA > 4 && wallRun <= 0 && climbT <= 0 && hangT <= 0 && vaultT <= 0 && performance.now() / 1000 - camTouchT > 1.2) {
-    let diff = (Math.atan2(vel.x, vel.z) + Math.PI) - camYaw;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    if (Math.abs(diff) < 1.9) camYaw += diff * Math.min(1, dt * 1.8) * Math.min(1, (hSpdA - 4) / 6);
-  }
   const effPitch = camPitch + fallLookSm * 0.38;
   const cx = p.x + Math.sin(camYaw) * Math.cos(effPitch) * CAM_DIST;
   const cz = p.z + Math.cos(camYaw) * Math.cos(effPitch) * CAM_DIST;
@@ -1917,7 +1855,6 @@ async function buildCourse(key) {
   applySpawn();
   plantTrees();
   placeCheckpoints();
-  placeOrbs();
   addProps();
   buildStaticMap();
   flyoverArmed = true; // コースに入ったら、まずルートを一望する
@@ -2175,7 +2112,7 @@ function showResult(t, prevBest, isBest) {
   if (score > prevScoreBest) { store.set(KEY_BASE + '-bestscore', String(score)); scoreNote = ' ・ 🎉 スコア自己ベスト！'; }
   document.getElementById('resSplits').innerHTML =
     splits.map((s, i) => 'CP' + (i + 1) + '： ' + s.toFixed(2) + ' 秒').join('<br>') +
-    '<br>スコア： ' + score.toLocaleString() + ' 点（最大 ' + bestCombo + ' コンボ）' + scoreNote + '<br>オーブ： ' + orbsGot + ' / ' + orbs.length;
+    '<br>スコア： ' + score.toLocaleString() + ' 点（最大 ' + bestCombo + ' コンボ）' + scoreNote;
   document.getElementById('result').style.display = 'flex';
 }
 document.getElementById('btnRetry').addEventListener('click', () => {
@@ -2227,22 +2164,6 @@ let lastCpHudText = '';
   }
   updateWind(frame);
   updateLandRing();
-  // オーブ: ふわふわ浮かせて回し、触れたら回収（コンボにも乗る）
-  const ot = performance.now() / 1000;
-  for (const o of orbs) {
-    if (o.taken) continue;
-    o.mesh.position.y = o.baseY + Math.sin(ot * 2.2 + o.phase) * 0.25;
-    o.mesh.rotation.y = ot * 2 + o.phase;
-    if (started && !finished && !flyover) {
-      const dx = player.position.x - o.x, dz = player.position.z - o.z;
-      if (dx * dx + dz * dz < 1.7 && Math.abs(player.position.y - o.mesh.position.y) < 1.7) {
-        o.taken = true; o.mesh.visible = false; orbsGot++;
-        combo++; comboT = 4; if (combo > bestCombo) bestCombo = combo;
-        score += 50 + (combo - 1) * 10;
-        seOrb(); updateScoreHud(); updateOrbHud();
-      }
-    }
-  }
   // HUD: 次のCPまでの距離も出す（変わったときだけ書き換える）
   {
     let txt = cpIndex + ' / ' + cps.length;

@@ -97,47 +97,39 @@
     #app { width:100vh; height:100vw; transform-origin:0 0; transform:translateX(100vw) rotate(90deg); }
   }
 </style>
+<link rel="stylesheet" href="assets/lobby.css">
 </head>
 <body>
 <div id="app">
 <div id="courseUI">
   <div id="lobbyAccount">
-    <div id="lobbyAvatar">🏃</div>
-    <div>
-      <div id="lobbyName">ランナー</div>
-      <div id="lobbyAccountSub">まだ記録がありません</div>
-    </div>
+    <div id="lobbyAvatar" aria-hidden="true"></div>
+    <div><div id="lobbyName">PLAYER</div><div id="lobbyAccountSub">まだ記録がありません</div><div class="account-line"></div></div>
   </div>
-  <div id="lobbyLogoMini">TOKYO PARKOUR</div>
+  <div id="lobbyLogoMini">PARKOUR <em>/</em> TOKYO</div>
   <div id="lobbyIcons">
-    <div class="icon-btn" id="btnMail">✉️</div>
-    <div class="icon-btn" id="btnBell">🔔</div>
+    <button class="icon-btn" id="btnMail" aria-label="お知らせ">✉</button>
+    <button class="icon-btn" id="btnBell" aria-label="通知"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></button>
   </div>
   <div id="lobbyEvents">
-    <div class="event-card">
-      <div class="event-tag">イベント開催中</div>
-      <div class="event-title">🏆 3コース制覇チャレンジ</div>
-      <div class="event-desc" id="eventProgress">全コースで記録を出そう！（0/3）</div>
-    </div>
-    <div class="event-card">
-      <div class="event-tag soon">予告</div>
-      <div class="event-title">🎰 スキンガチャ 近日公開</div>
-      <div class="event-desc">キャラのスキンはガチャで入手できるようになります。お楽しみに！</div>
-    </div>
+    <div class="promo-card season"><div class="promo-kicker">EXPLORE THE CITY</div><strong>NEW<br>HORIZONS</strong><span>東京の屋上が、遊び場になる。</span></div>
+    <button class="promo-card rooftop" id="btnLobbyCourses"><div class="promo-kicker">TOKYO PARKOUR</div><strong>ROOFTOP<br>RUN <b>»</b></strong><span>3つの街を、駆け抜けよう。</span></button>
+    <button class="side-action" id="btnQuest"><span aria-hidden="true">▣</span> ミッション <b>›</b></button>
+    <button class="side-action" id="btnHowTo"><span aria-hidden="true">ⓘ</span> 遊び方 <b>›</b></button>
   </div>
-  <div id="lobbyCharName">🏃 ランナー</div>
+  <div class="challenge-card"><div>▱ &nbsp; 3コース制覇チャレンジ</div><p id="eventProgress">全コースで記録を出そう！（0/3）</p><div class="challenge-line"></div></div>
+  <div id="lobbyCharName">ランナー</div>
   <div id="howtoPanel">左スティック：移動<br>右ボタン：ジャンプ／スライディング／ダッシュ／ロール<br>画面ドラッグ：視点<br>壁のそばで空中ジャンプ連打：壁キック<br>縁に近づくと自動でつかむ。チェックポイントを5つ回ってゴール。</div>
-  <div id="lobbyBottomBar">
-    <button class="lobby-menu-btn" id="btnQuest">📜<span>クエスト</span></button>
-    <button class="lobby-menu-btn" id="btnGacha">🎰<span>ガチャ</span></button>
-    <button class="lobby-menu-btn" id="btnDress">👕<span>着せ替え</span></button>
-    <button class="lobby-menu-btn" id="btnShop">🛒<span>ショップ</span></button>
-    <button class="lobby-menu-btn" id="btnHowTo">❓<span>遊び方</span></button>
-    <div id="lobbyStartWrap">
-      <div id="lobbyModeChip">🏃 タイムアタック</div>
-      <button id="btnStartRun">▶ スタート</button>
-    </div>
+  <div id="lobbyStartWrap">
+    <button id="btnLobbyCourseSelect"><span class="course-eyebrow">SELECT YOUR COURSE</span><strong>コース選択 <b>›</b></strong><span>渋谷 ／ 池袋 ／ 新宿</span></button>
+    <button id="btnStartRun">ラン開始 <span aria-hidden="true">»</span></button>
   </div>
+  <nav id="lobbyBottomBar" aria-label="ロビーメニュー">
+    <button class="lobby-menu-btn active" aria-current="page"><i aria-hidden="true">⌂</i><span>ホーム</span></button>
+    <button class="lobby-menu-btn" id="btnGacha"><i aria-hidden="true">◇</i><span>ガチャ</span></button>
+    <button class="lobby-menu-btn" id="btnDress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 3-5 3-2 5 5 2v8h12v-8l5-2-2-5-5-3c0 4-8 4-8 0Z"/></svg><span>着せ替え</span></button>
+    <button class="lobby-menu-btn" id="btnShop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h3l3 13h11l3-9H6M9 21h.01M18 21h.01"/></svg><span>ショップ</span></button>
+  </nav>
 </div>
 <div id="courseSelect">
   <div class="sel-card">
@@ -3224,6 +3216,7 @@ function refreshCourseBests() {
     let cnt = 0;
     for (const k of COURSE_ORDER) { if (isFinite(parseFloat(store.get(k + '-touch-best') || ''))) cnt++; }
     ev.textContent = '全コースで記録を出そう！（' + cnt + '/3）';
+    ev.nextElementSibling.style.setProperty('--progress', (cnt / 3 * 100) + '%');
   }
   const nm = document.getElementById('lobbyCharName');
   if (nm) nm.textContent = '🏃 ランナー ｜ ' + (COURSE_NAMES[COURSE] || COURSE) + 'コース';
@@ -3275,6 +3268,7 @@ document.getElementById('btnIkebukuro').addEventListener('click', () => selectAn
 document.getElementById('btnShinjuku').addEventListener('click', () => selectAndStart('shinjuku'));
 document.getElementById('courseBtn').addEventListener('click', () => { flyover = null; setLobby(true); });
 document.getElementById('btnStartRun').addEventListener('click', () => { if (!building && built) openSelect(true); });
+for (const id of ['btnLobbyCourses', 'btnLobbyCourseSelect']) document.getElementById(id).addEventListener('click', () => document.getElementById('btnStartRun').click());
 document.getElementById('btnSelectBack').addEventListener('click', () => openSelect(false));
 document.getElementById('btnHowTo').addEventListener('click', () => {
   const p = document.getElementById('howtoPanel');

@@ -1,0 +1,54 @@
+/* Lobby presentation only; gameplay styles and rendering remain in index.html. */
+#courseUI { --cyan:#5deaff; --glass:rgba(12,38,64,.78); color:#fff; background:linear-gradient(180deg,rgba(8,29,54,.22),transparent 30%,transparent 65%,rgba(5,20,38,.48)),url('./lobby-rooftop.webp') center center/cover no-repeat; font-family:Arial,'Noto Sans JP',sans-serif; }
+#courseUI button { font-family:inherit; cursor:pointer; color:inherit; touch-action:manipulation; }
+#courseUI button:focus-visible { outline:3px solid #fff; outline-offset:4px; }
+#courseUI button:hover { filter:brightness(1.16); }
+#courseUI button:active { filter:brightness(.9); }
+#lobbyAccount { top:2.4%; left:2.2%; padding:0; border:0; border-radius:0; background:none; gap:12px; text-shadow:0 2px 9px #122c49; }
+#lobbyAvatar { width:clamp(40px,5vw,78px);height:clamp(40px,5vw,78px);border-radius:0;border:2px solid var(--cyan);background:url('./lobby-rooftop.webp') 49% 10%/650% auto;box-shadow:0 0 18px #5deaff44; }
+#lobbyName {font-size:clamp(15px,1.8vw,28px);letter-spacing:1px;}
+#lobbyAccountSub {color:#dcefff;font-size:clamp(9px,.85vw,13px);margin-top:5px;}
+.account-line {height:3px;width:65%;background:var(--cyan);margin-top:9px;box-shadow:45px 0 0 #ffffff33;}
+#lobbyLogoMini {top:3%;font-size:clamp(12px,1.35vw,23px);letter-spacing:.38em;font-style:italic;white-space:nowrap;}
+#lobbyLogoMini em {color:var(--cyan);font-size:1.4em;margin:0 8px;}
+#lobbyIcons {top:2.5%;right:2.5%;gap:18px;}
+#lobbyIcons .icon-btn {border:0;background:transparent;border-radius:0;font-size:clamp(24px,2.8vw,40px);width:40px;height:40px;text-shadow:0 2px 8px #173951;}
+#lobbyEvents {top:16%;left:2.2%;width:24%;max-width:360px;gap:clamp(8px,1.6vh,16px);}
+.promo-card {text-align:left;position:relative;overflow:hidden;padding:clamp(10px,1.2vw,20px);border:1px solid #a6e9ff99;border-left:4px solid var(--cyan);background:linear-gradient(90deg,#112c4dea,#1d4e6e55),url('./lobby-rooftop.webp') center/cover;box-shadow:0 5px 20px #03162933;clip-path:polygon(5% 0,100% 0,100% 90%,95% 100%,0 100%,0 10%);}
+.promo-card.season {background-position:center,48% 28%;}
+.promo-card.rooftop {background-position:center,85% 65%;}
+.promo-kicker {font-size:clamp(7px,.65vw,10px);letter-spacing:.18em;color:#a2efff;margin-bottom:8px;}
+.promo-card strong {display:block;font-size:clamp(18px,2.3vw,36px);line-height:1.03;font-weight:900;font-style:italic;letter-spacing:-.02em;}
+.promo-card span {display:block;font-size:clamp(9px,.85vw,13px);margin-top:10px;}
+.promo-card b {color:#ffda4c;float:right;font-size:1.6em;line-height:.7;}
+.side-action {display:flex;align-items:center;gap:14px;width:82%;padding:clamp(8px,1vh,13px) 14px;border:1px solid #91eaffaa;border-left:3px solid var(--cyan);background:var(--glass);font-weight:700;font-size:clamp(12px,1.3vw,20px);text-align:left;}
+.side-action span {font-size:1.4em;}.side-action b {margin-left:auto;font-size:1.5em;}
+.challenge-card {position:absolute;right:2.5%;top:15%;width:24%;max-width:340px;background:var(--glass);border-top:1px solid #94ddff;padding:14px 18px;box-sizing:border-box;}
+.challenge-card>div:first-child {font-weight:bold;font-size:clamp(11px,1.2vw,19px);}
+.challenge-card p {font-size:clamp(9px,.9vw,14px);line-height:1.6;margin:10px 0;}.challenge-line{height:4px;background:linear-gradient(90deg,var(--cyan) 20%,#b4e2ff33 20%);}
+#lobbyCharName {left:50%;bottom:13%;border:0;border-radius:0;background:#102a4055;font-size:clamp(9px,.8vw,12px);padding:5px 12px;opacity:.85;}
+#lobbyStartWrap {position:absolute;right:2.5%;bottom:12%;width:29%;max-width:470px;margin:0;text-align:left;}
+#btnLobbyCourseSelect {width:100%;display:flex;flex-direction:column;gap:5px;text-align:left;padding:14px 22px;margin-bottom:14px;border:1px solid #a0e6ff;background:linear-gradient(100deg,#163450ed,#20486955),url('./lobby-rooftop.webp') 85% 60%/cover;transform:skew(-7deg);}
+#btnLobbyCourseSelect>* {transform:skew(7deg);}.course-eyebrow {font-size:9px;letter-spacing:2px;color:#a5ecff;}#btnLobbyCourseSelect strong {font-size:clamp(18px,2.1vw,32px);}#btnLobbyCourseSelect b {float:right;}#btnLobbyCourseSelect span:last-child {font-size:clamp(9px,.85vw,13px);}
+#btnStartRun {width:100%;border:1px solid #fff2a0;border-radius:0;background:linear-gradient(115deg,#ffe86b,#ffcd1b 60%,#ffde50);color:#392c09!important;font-size:clamp(24px,3.3vw,50px);font-style:italic;letter-spacing:.06em;padding:clamp(10px,1.5vh,20px) 18px;transform:skew(-8deg);box-shadow:0 0 20px #ffcd1b55,inset 0 0 0 3px #fff7;}
+#btnStartRun span {margin-left:14px;}
+#lobbyBottomBar {height:9%;box-sizing:border-box;display:flex;align-items:stretch;gap:0;padding:0 2%;background:linear-gradient(90deg,#102b45ef,#172f48dc);border-top:1px solid #9bdbff88;}
+#lobbyBottomBar .lobby-menu-btn {width:auto;flex:1;flex-direction:row;justify-content:center;gap:16px;padding:0;border:0;border-radius:0;border-right:1px solid #9be7ff44;background:transparent;color:#f0f7ff;}
+#lobbyBottomBar .lobby-menu-btn.active {background:linear-gradient(110deg,#38bfe84d,#37c7e811);border-bottom:3px solid var(--cyan);}
+.lobby-menu-btn i {font-size:clamp(22px,2.8vw,40px);font-style:normal;}.lobby-menu-btn span {font-size:clamp(12px,1.5vw,23px);letter-spacing:.05em;}
+#howtoPanel {z-index:5;left:29%;bottom:13%;max-width:38%;font-size:clamp(10px,1vw,14px);background:#102a40f0;border:1px solid var(--cyan);}
+#courseSelect {background:rgba(5,20,38,.78);backdrop-filter:blur(12px);}
+#courseSelect .sel-card {background:linear-gradient(145deg,#193e5a,#0c2038);border:1px solid #75d9f5;padding:24px;box-sizing:border-box;max-height:94%;overflow:auto;}
+#courseSelect .course-btn {border-radius:2px;border-color:#8ce3faaa;}
+@media(max-height:500px){#lobbyEvents{top:19%;gap:6px;width:24%;}.promo-card{padding:8px 12px}.promo-kicker{margin-bottom:4px}.promo-card span{margin-top:5px}.promo-card strong{font-size:20px}.side-action{padding:4px 10px;font-size:12px}.challenge-card{padding:10px;top:19%}.challenge-card p{margin:6px 0}#btnLobbyCourseSelect{padding:8px 14px;margin-bottom:8px}#lobbyLogoMini{font-size:12px}#lobbyCharName{display:none}.account-line{margin-top:5px}#lobbyIcons{gap:6px}#lobbyBottomBar{height:10%}#lobbyStartWrap{bottom:14%}}
+@media(prefers-reduced-motion:no-preference){#courseUI button{transition:filter .15s ease}}
+#lobbyIcons svg {width:30px;height:30px;}
+.lobby-menu-btn svg {width:clamp(22px,2.6vw,38px);height:clamp(22px,2.6vw,38px);}
+.promo-card.season {background-size:auto,230% auto;background-position:center,28% 20%;}
+.promo-card.rooftop {background-size:auto,230% auto;background-position:center,right 65%;}
+#btnLobbyCourseSelect {background-size:auto,230% auto;background-position:center,right 65%;}
+.challenge-line {background:linear-gradient(90deg,var(--cyan) var(--progress,0%),#b4e2ff33 var(--progress,0%));}
+/* Keep the existing game-to-lobby control clear of the restart button. */
+#courseBtn {right:70px;}
+#btnPause {right:174px;}
+@media(min-aspect-ratio:2/1){#courseUI{background-position:center,center top;}#lobbyLogoMini{left:64%;font-size:10px;letter-spacing:.25em;}}

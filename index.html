@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v4.4（ドロップボーナス＋スプリット差分）</title>
+<title>パルクール試作 v4.5（ヌルヌル化：入力・カメラ・体の動き）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -805,7 +805,7 @@ function animatePlayer(dt) {
     // 壁キック: 片脚を後ろに伸ばして壁を蹴り、もう片方は抱え込む
     t.legL = 0.95; t.kneeL = 0.15; t.legR = -0.85; t.kneeR = 1.25; t.armL = -1.4; t.armR = 0.7; t.elbL = -0.5; t.elbR = -0.3; t.bodyX = 0.12;
   } else if (!onGround) {
-    t.legL = -0.55; t.legR = 0.35; t.kneeL = 0.55; t.kneeR = 0.3; t.armL = -0.5; t.armR = -0.3; t.elbL = -0.4; t.elbR = -0.4; t.armLZ = 0.55; t.armRZ = -0.55; t.bodyX = 0.06;
+    t.legL = -0.55; t.legR = 0.35; t.kneeL = 0.55; t.kneeR = 0.3; t.armL = -0.5; t.armR = -0.3; t.elbL = -0.4; t.elbR = -0.4; t.armLZ = 0.55; t.armRZ = -0.55; t.bodyX = 0.06 + Math.max(-0.16, Math.min(0.30, -vel.y * 0.010)); // 上昇で少し起き、落下で前のめりに
   } else if (spd > 0.6) {
     runPhase += dt * (5 + spd * 0.85);
     const s = Math.sin(runPhase);
@@ -814,7 +814,7 @@ function animatePlayer(dt) {
     t.kneeR = 0.12 + Math.max(0, Math.sin(runPhase + Math.PI - 2.0)) * 1.05;
     t.armL = -s * 0.8; t.armR = s * 0.8;
     t.elbL = -0.7 - s * 0.25; t.elbR = -0.7 + s * 0.25;
-    t.bodyX = 0.14;
+    t.bodyX = 0.10 + Math.min(0.14, spd * 0.011); // 速いほど前傾（スピード感）
     t.bodyY = Math.abs(Math.sin(runPhase)) * 0.05; // 走行中の小さな上下動
   } else {
     t.bodyY = Math.sin(animTime * 2) * 0.008; // 静止時は呼吸みたいに微かに
@@ -832,6 +832,11 @@ function animatePlayer(dt) {
   armR.rotation.z += (t.armRZ - armR.rotation.z) * k;
   bodyG.rotation.x += (t.bodyX - bodyG.rotation.x) * k;
   bodyG.position.y += (t.bodyY - bodyG.position.y) * k;
+  // 旋回中は体を内側へ傾ける（バンク）。ロール中は上書きしない
+  { let dF = facing - prevFacingA; while (dF > Math.PI) dF -= Math.PI * 2; while (dF < -Math.PI) dF += Math.PI * 2; prevFacingA = facing;
+    const bankT = Math.max(-0.15, Math.min(0.15, -(dt > 0 ? dF / dt : 0) * 0.055)) * (onGround ? 1 : 0.4);
+    bankSm += (bankT - bankSm) * Math.min(1, dt * 8);
+    if (rollT <= 0) bodyG.rotation.z += (bankSm - bodyG.rotation.z) * Math.min(1, dt * 10); }
   if (rollT > 0) {
     // パルクールロール: 体を前方に1回転させる
     const pr = Math.min(1, rollT);
@@ -883,6 +888,10 @@ addEventListener('keydown', () => { if (flyover) flyover = null; });
 let score = 0, combo = 0, comboT = 0, bestCombo = 0, trickCd = {}; // コンボスコア
 let jumpCutPending = false, jumpCutDone = true, airSteps = 0; // 可変ジャンプ（長押しで高く）
 let airPeak = 0; // 空中での足元の最高到達点（ドロップボーナス判定用）
+let inSmX = 0, inSmF = 0; // 入力スムージングの現在値
+let camYawT = 0; // カメラヨーの目標値（実値はなめらかに追従する）
+let fovSm = 65; // FOVの現在値（速度でなめらかに変化）
+let prevFacingA = 0, bankSm = 0; // 体の傾き（バンク）の平滑値
 function updateScoreHud() {
   const el = document.getElementById('score');
   if (el) el.textContent = score.toLocaleString() + (combo > 1 ? '（' + combo + 'コンボ）' : '');
@@ -954,7 +963,7 @@ addEventListener('pointermove', e => {
     joy.x = dx / JOY_R; joy.y = dy / JOY_R;
     joyKnob.style.left = (joy.ox + dx) + 'px'; joyKnob.style.top = (joy.oy + dy) + 'px';
   } else if (e.pointerId === look.id) {
-    camYaw -= (g.x - look.lx) * 0.0052;
+    camYawT -= (g.x - look.lx) * 0.0052;
     camPitch += (g.y - look.ly) * 0.0052;
     camPitch = Math.max(-0.1, Math.min(1.1, camPitch));
     look.lx = g.x; look.ly = g.y;
@@ -1218,7 +1227,7 @@ function applySpawn() {
   vel.set(0, 0, 0);
   facing = Math.atan2(-spawn.x, -spawn.z);
   player.rotation.y = facing;
-  camYaw = facing + Math.PI;
+  camYaw = facing + Math.PI; camYawT = camYaw;
   camPitch = 0.32;
 }
 
@@ -1244,7 +1253,7 @@ function respawnToCp() {
   slideTime = 0; rollT = 0; recoverT = 0; pendingRecover = 0; climbT = 0; hangT = 0; vaultT = 0; wallRun = 0; dashTime = 0;
   onGround = true;
   const nxt = cps[cpIndex];
-  if (nxt) { facing = Math.atan2(nxt.x - x, nxt.z - z); player.rotation.y = facing; camYaw = facing + Math.PI; }
+  if (nxt) { facing = Math.atan2(nxt.x - x, nxt.z - z); player.rotation.y = facing; camYaw = facing + Math.PI; camYawT = camYaw; }
   showToast(tgt ? 'CP' + cpIndex + ' から再開（タイムは継続）' : 'スタート地点から再開（タイムは継続）');
 }
 
@@ -1258,6 +1267,7 @@ function reset() {
   tutoredNow = !!store.get(KEY_BASE + '-tutored');
   flyover = null;
   score = 0; combo = 0; comboT = 0; bestCombo = 0; trickCd = {}; jumpCutPending = false; jumpCutDone = true; updateScoreHud();
+  inSmX = 0; inSmF = 0;
   if (flyoverArmed) {
     flyoverArmed = false;
     const wps = [{ x: spawn.x, z: spawn.z, top: spawn.roof ? spawn.roof.top : 0 }, ...cps.map(c => ({ x: c.x, z: c.z, top: c.top }))];
@@ -1345,6 +1355,11 @@ function step(dt) {
   // 入力ベクトル（キーボード＋スティック合算）
   let inX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + joy.x;
   let inF = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) - joy.y;
+  // 入力をなめらかにする（スティックの微振動や急な方向転換でカクつかないように）
+  const kIn = 1 - Math.exp(-18 * dt);
+  inSmX += (inX - inSmX) * kIn;
+  inSmF += (inF - inSmF) * kIn;
+  inX = inSmX; inF = inSmF;
   let len = Math.hypot(inX, inF);
   if (len > 1) { inX /= len; inF /= len; len = 1; }
   // カメラ基準の前方向・右方向
@@ -1360,6 +1375,9 @@ function step(dt) {
     facing += diff * Math.min(1, dt * 14);
     player.rotation.y = facing;
   }
+
+  // カメラヨーを目標へなめらかに追従させる（ドラッグの微振動を消す）
+  { let dYaw = camYawT - camYaw; while (dYaw > Math.PI) dYaw -= Math.PI * 2; while (dYaw < -Math.PI) dYaw += Math.PI * 2; camYaw += dYaw * Math.min(1, dt * 22); }
 
   // タイマー
   if (dashCooldown > 0) dashCooldown -= dt;
@@ -2186,6 +2204,11 @@ let lastCpHudText = '';
   updateLandRing();
   const bdEl = document.getElementById('btnDash');
   if (bdEl) bdEl.style.opacity = dashCooldown > 0 ? String(1 - 0.6 * Math.min(1, dashCooldown / 1.4)) : '1';
+  // 速度でFOVを広げる（速さ・落下・ダッシュで視界が開けてスピード感が出る）
+  const hSpdF = Math.hypot(vel.x, vel.z);
+  const fovT = 65 + Math.max(0, Math.min(7, (hSpdF - 8) * 0.55)) + (dashTime > 0 ? 3 : 0) + (wallRun > 0 ? 2 : 0) + Math.max(0, Math.min(5, (-vel.y - 8) * 0.3));
+  fovSm += (fovT - fovSm) * Math.min(1, frame * 5);
+  if (Math.abs(fovSm - camera.fov) > 0.01) { camera.fov = fovSm; camera.updateProjectionMatrix(); }
   // HUD: 次のCPまでの距離も出す（変わったときだけ書き換える）
   {
     let txt = cpIndex + ' / ' + cps.length;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v6.6（ロビーを刷新：アカウント/イベント/下部メニュー/コース選択画面）</title>
+<title>パルクール試作 v6.7（ロビーで移動パネルが出る問題を修正）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -51,7 +51,7 @@
   #courseSelect { position:absolute; inset:0; z-index:35; display:none; align-items:center; justify-content:center; background:rgba(5,10,16,.55); }
   #courseSelect .sel-card { width:min(430px, 88%); text-align:center; color:#fff; }
   #btnSelectBack { margin-top:6px; background:rgba(8,14,20,.72); color:#fff; border:1.5px solid rgba(255,255,255,.45); border-radius:12px; padding:11px 26px; font-size:14px; font-weight:bold; cursor:pointer; }
-  #app.lobby #map, #app.lobby #mapInfo, #app.lobby .btn, #app.lobby #courseBtn, #app.lobby #btnPause, #app.lobby #msg { display:none !important; }
+  #app.lobby #map, #app.lobby #mapInfo, #app.lobby .btn, #app.lobby #courseBtn, #app.lobby #btnPause, #app.lobby #msg, #app.lobby #joyBase, #app.lobby #joyKnob { display:none !important; }
   .course-card { text-align:center; color:#fff; width:min(420px, 86%); }
   .course-title { font-size:27px; font-weight:bold; margin-bottom:4px; }
   .course-sub { font-size:13px; opacity:.85; margin-bottom:14px; }
@@ -1232,6 +1232,7 @@ function toGame(e) {
 }
 
 addEventListener('pointerdown', e => {
+  if (lobbyMode) return; // ロビー表示中は移動パネル・視点ドラッグ・全体マップを開かない
   if (!mapOpen) { // ミニマップの四角内タップは全体マップを開く（座標でも判定して確実に拾う）
     const mr = document.getElementById('map').getBoundingClientRect();
     if (e.clientX >= mr.left && e.clientX <= mr.right && e.clientY >= mr.top && e.clientY <= mr.bottom) { openBigMap(); return; }
@@ -1249,6 +1250,7 @@ addEventListener('pointerdown', e => {
   }
 });
 addEventListener('pointermove', e => {
+  if (lobbyMode) return;
   const g = toGame(e);
   if (e.pointerId === joy.id) {
     let dx = g.x - joy.ox, dy = g.y - joy.oy;

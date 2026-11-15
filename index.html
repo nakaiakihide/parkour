@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v4.7（建物の見た目：窓の種類＋屋上の縁取り）</title>
+<title>パルクール試作 v4.8（ポーズ・次のコース・ベスト表示）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -21,6 +21,10 @@
     text-shadow:0 1px 3px rgba(0,0,0,.8); pointer-events:none; line-height:1.5; }
   #courseBtn { position:fixed; top:10px; right:10px; z-index:7; padding:9px 13px; font-size:14px; font-weight:bold;
     color:#fff; background:rgba(10,18,26,.72); border:2px solid rgba(255,255,255,.45); border-radius:12px; }
+  #btnPause { position:fixed; top:10px; right:118px; z-index:7; padding:9px 13px; font-size:14px; font-weight:bold;
+    color:#fff; background:rgba(8,14,20,.78); border:2px solid rgba(255,255,255,.4); border-radius:12px; pointer-events:auto; cursor:pointer; }
+  #pauseLabel { position:absolute; top:38%; left:50%; transform:translateX(-50%); z-index:20; pointer-events:none;
+    color:#fff; font-size:22px; font-weight:bold; background:rgba(0,0,0,.55); padding:10px 22px; border-radius:16px; display:none; }
   #courseUI { position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center;
     background:rgba(5,10,16,.74); }
   .course-card { text-align:center; color:#fff; width:min(420px, 86%); }
@@ -80,6 +84,7 @@
   </div>
 </div>
 <button id="courseBtn">🗺 コース</button>
+<button id="btnPause">⏸ 一時停止</button><div id="pauseLabel">⏸ 一時停止中</div>
 <div id="toast"></div>
 <div id="result">
   <div class="course-card">
@@ -89,6 +94,7 @@
     <div id="resSplits"></div>
     <button class="course-btn" id="btnRetry">↻ もう一度走る</button>
     <button class="course-btn" id="btnCourse2">🗺 コースを選ぶ</button>
+    <button class="course-btn" id="btnNextCourse">⏭ 次のコースへ</button>
   </div>
 </div>
 <canvas id="map" width="176" height="176"></canvas>
@@ -2225,6 +2231,8 @@ function showResult(t, prevBest, isBest, prevSplits) {
       return line;
     }).join('<br>') +
     '<br>スコア： ' + score.toLocaleString() + ' 点（最大 ' + bestCombo + ' コンボ）' + scoreNote;
+  document.getElementById('btnNextCourse').textContent = '⏭ 次のコース（' + (COURSE_NAMES[nextCourseKey()] || '') + '）へ';
+  refreshCourseBests();
   document.getElementById('result').style.display = 'flex';
 }
 document.getElementById('btnRetry').addEventListener('click', () => {
@@ -2234,6 +2242,34 @@ document.getElementById('btnRetry').addEventListener('click', () => {
 document.getElementById('btnCourse2').addEventListener('click', () => {
   document.getElementById('result').style.display = 'none';
   courseUI.style.display = 'flex';
+});
+
+// ---- 一時停止 ----
+const pauseLabel = document.getElementById('pauseLabel');
+function setPaused(v) {
+  paused = v;
+  document.getElementById('btnPause').textContent = v ? '▶ 再開' : '⏸ 一時停止';
+  pauseLabel.style.display = v ? 'block' : 'none';
+}
+document.getElementById('btnPause').addEventListener('click', () => setPaused(!paused));
+document.addEventListener('visibilitychange', () => { if (document.hidden && started && !finished) setPaused(true); });
+
+// ---- コースボタンのベスト表示と「次のコース」 ----
+const COURSE_ORDER = ['shibuya', 'hibari', 'ikebukuro'];
+const COURSE_BTN = { shibuya: 'btnShibuya', hibari: 'btnHibari', ikebukuro: 'btnIkebukuro' };
+function nextCourseKey() { return COURSE_ORDER[(COURSE_ORDER.indexOf(COURSE) + 1) % COURSE_ORDER.length]; }
+function refreshCourseBests() {
+  for (const k of COURSE_ORDER) {
+    const small = document.getElementById(COURSE_BTN[k]).querySelector('small');
+    if (!small) continue;
+    if (!small.dataset.desc) small.dataset.desc = small.textContent;
+    const b = parseFloat(store.get(k + '-touch-best') || '');
+    small.textContent = small.dataset.desc + (isFinite(b) ? ' ・ベスト ' + b.toFixed(2) + '秒' : '');
+  }
+}
+document.getElementById('btnNextCourse').addEventListener('click', () => {
+  document.getElementById('result').style.display = 'none';
+  chooseCourse(nextCourseKey());
 });
 
 // ---- コース選択 ----
@@ -2260,8 +2296,11 @@ const clock = new THREE.Clock();
 let physAcc = 0;
 const PHYS_DT = 1 / 120; // 物理は端末のfpsに依らず固定間隔で計算する（ジャンプの届き方が端末で変わらない）
 let lastCpHudText = '';
+let paused = false;
+refreshCourseBests();
 (function loop() {
   requestAnimationFrame(loop);
+  if (paused) { clock.getDelta(); renderer.render(scene, camera); return; } // 一時停止中は時間を進めない
   const frame = Math.min(clock.getDelta(), 0.1);
   physAcc += frame;
   let n = 0;

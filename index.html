@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v3.8（新コース：池袋）</title>
+<title>パルクール試作 v3.9（操作性アップ＋コンボスコア）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -93,7 +93,7 @@
 </div>
 <canvas id="map" width="176" height="176"></canvas>
 <div id="bigmap"><canvas id="bigmapCanvas" width="900" height="900"></canvas><div id="bigmapClose">✕ 閉じる</div><div class="mapbtn" id="bigmapHere">◎ 現在地</div><div class="mapbtn" id="bigmapZoomIn">＋</div><div class="mapbtn" id="bigmapZoomOut">−</div></div>
-<div id="mapInfo">【<span id="courseName">渋谷</span>】 ⏱ <span id="time">0.00</span>秒　CP <span id="cp">0 / 5</span><br>次のCPまで <span id="cpdist">—</span></div>
+<div id="mapInfo">【<span id="courseName">渋谷</span>】 ⏱ <span id="time">0.00</span>秒　CP <span id="cp">0 / 5</span><br>次のCPまで <span id="cpdist">—</span><br>スコア <span id="score">0</span></div>
 <div id="msg">屋根の上からスタート！ベランダからも登れる。狭い隙間では空中で壁のそばでジャンプ連打＝壁キックで高い所まで登れる。左上の地図をタップすると全体マップが開く</div>
 <div id="joyBase"></div><div id="joyKnob"></div>
 <div class="btn" id="btnJump">ジャンプ</div>
@@ -877,6 +877,22 @@ let rollBuf = 0; // ロールの先行入力バッファ（タイミング受け
 let hintFlags = {}; // 状況ヒントを出したかどうか（コースごとにリセット）
 let tutoredNow = false; // そのコースの初回プレイ（チュートリアル扱い）が終わったか
 let flyover = null, flyoverArmed = false; // スタート前のルート一望カメラ
+let score = 0, combo = 0, comboT = 0, bestCombo = 0, trickCd = {}; // コンボスコア
+let jumpCutPending = false, jumpCutDone = true, airSteps = 0; // 可変ジャンプ（長押しで高く）
+function updateScoreHud() {
+  const el = document.getElementById('score');
+  if (el) el.textContent = score.toLocaleString() + (combo > 1 ? '（' + combo + 'コンボ）' : '');
+}
+function trick(name, pts, cdKey, cdSec) {
+  if (!started || finished || flyover) return;
+  if (cdKey) { if (trickCd[cdKey] > 0) return; trickCd[cdKey] = cdSec || 1.5; }
+  combo++; comboT = 4;
+  if (combo > bestCombo) bestCombo = combo;
+  const gain = pts + (combo - 1) * 25;
+  score += gain;
+  showToast(name + ' +' + gain + (combo > 1 ? ' ' + combo + 'コンボ！' : ''));
+  updateScoreHud();
+}
 let stepTick = 0;
 let slideDirX = 0, slideDirZ = -1;
 let wantJump = false, wantSlide = false, wantDash = false;
@@ -891,7 +907,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR') respawnToCp();
   if (e.code === 'KeyC') pressRoll();
 });
-addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') jumpCutPending = true; });
 
 // ---- 入力: タッチ／マウス（ポインタ） ----
 const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
@@ -951,13 +967,13 @@ addEventListener('pointerup', endPointer);
 addEventListener('pointercancel', endPointer);
 
 // ---- 入力: 右ボタン ----
-function bindButton(id, onDown) {
+function bindButton(id, onDown, onUp) {
   const el = document.getElementById(id);
   el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('on'); onDown(); });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
-    el.addEventListener(ev, () => el.classList.remove('on')));
+    el.addEventListener(ev, () => { el.classList.remove('on'); if (onUp) onUp(); }));
 }
-bindButton('btnJump', () => { wantJump = true; jumpBuf = 0.15; });
+bindButton('btnJump', () => { wantJump = true; jumpBuf = 0.15; }, () => { jumpCutPending = true; });
 bindButton('btnSlide', () => { wantSlide = true; });
 bindButton('btnDash', () => { wantDash = true; });
 bindButton('btnRestart', () => { respawnToCp(); });
@@ -1209,6 +1225,7 @@ function pressRoll() {
     if (sp <= 3) { vel.x = Math.sin(facing) * 5; vel.z = Math.cos(facing) * 5; }
     rollT = 0.0001; rollDur = 0.45;
     rollBuf = 0;
+    trick('ロール', 30, 'roll', 2);
   }
 }
 
@@ -1236,6 +1253,7 @@ function reset() {
   hintFlags = {};
   tutoredNow = !!store.get(KEY_BASE + '-tutored');
   flyover = null;
+  score = 0; combo = 0; comboT = 0; bestCombo = 0; trickCd = {}; jumpCutPending = false; jumpCutDone = true; updateScoreHud();
   if (flyoverArmed) {
     flyoverArmed = false;
     const wps = [{ x: spawn.x, z: spawn.z, top: spawn.roof ? spawn.roof.top : 0 }, ...cps.map(c => ({ x: c.x, z: c.z, top: c.top }))];
@@ -1341,6 +1359,9 @@ function step(dt) {
 
   // タイマー
   if (dashCooldown > 0) dashCooldown -= dt;
+  if (comboT > 0) { comboT -= dt; if (comboT <= 0 && combo > 0) { combo = 0; updateScoreHud(); } }
+  for (const k in trickCd) if (trickCd[k] > 0) trickCd[k] -= dt;
+  if (onGround) { airSteps = 0; jumpCutPending = false; }
   if (dashTime > 0) dashTime -= dt;
   if (slideTime > 0) slideTime -= dt;
   if (wallRunCd > 0) wallRunCd -= dt;
@@ -1367,6 +1388,7 @@ function step(dt) {
   }
   if (wantSlide && onGround && slideTime <= 0 && dashTime <= 0) {
     slideTime = 0.55;
+    if (Math.hypot(vel.x, vel.z) >= 4) trick('スライディング', 30, 'slide', 2);
     if (moving) { const l = Math.hypot(mvx, mvz) || 1; slideDirX = mvx / l; slideDirZ = mvz / l; }
     else { slideDirX = Math.sin(facing); slideDirZ = Math.cos(facing); }
     
@@ -1390,10 +1412,13 @@ function step(dt) {
       onGround = false;
       jumpBuf = 0; coyote = 0;
       seJump();
-      if (slideTime > 0) { slideTime = 0;  }
+      jumpCutDone = false; airSteps = 0;
+      if (ticTac) trick('ティックタック', 150);
+      if (slideTime > 0) { slideTime = 0; const hs = Math.hypot(vel.x, vel.z); if (hs > 1) { const b = Math.min(1.12, 14 / hs); vel.x *= b; vel.z *= b; } trick('スライドジャンプ', 60); }
     } else if (wallRun > 0) {
       // 壁ジャンプ: 壁から離れる向きへ跳び出す
       vel.y = 7.5;
+      jumpCutDone = false; airSteps = 0;
       vel.x = wallNX * 7 + vel.x * 0.35;
       vel.z = wallNZ * 7 + vel.z * 0.35;
       wallRun = 0;
@@ -1403,6 +1428,8 @@ function step(dt) {
       if (slideTime > 0) { slideTime = 0;  }
     } else if (kickCd <= 0 && tryWallKick()) {
       // 壁キック成立（速度は tryWallKick 内で設定済み）。狭い隙間で交互に蹴れば高い所まで登れる
+      jumpCutDone = false; airSteps = 0;
+      trick('壁キック', 120);
       jumpBuf = 0;
       if (slideTime > 0) { slideTime = 0; }
     } else if (climbT <= 0) {
@@ -1427,6 +1454,7 @@ function step(dt) {
         facing = Math.atan2(tx - pp.x, tz - pp.z); player.rotation.y = facing;
         climbDur = 0.45 + rise * 0.12; // クライムアップは一瞬ではない（約0.5〜0.85秒）
         climbT = 0.0001;
+        if (rise >= 2.0) trick('クライムアップ', 80);
         jumpBuf = 0;
         vel.x = 0; vel.y = 0; vel.z = 0;
         seClimb();
@@ -1462,6 +1490,7 @@ function step(dt) {
         vaultArc = ph + 0.15; vaultDirX = dirx; vaultDirZ = dirz; vaultSpeed = hSpd * 0.92;
         vaultDur = Math.min(0.5, Math.max(0.34, 0.3 + tExit * 0.03));
         vaultT = 0.0001;
+        trick('ヴォルト', 100);
         seDash();
         break;
       }
@@ -1546,7 +1575,7 @@ function step(dt) {
     if (n) {
       const along = Math.abs(vel.x * -n.z + vel.z * n.x);
       if (along >= 5) {
-        if (wallRun <= 0) { seWall(); wallRunDist = 0; }
+        if (wallRun <= 0) { seWall(); wallRunDist = 0; trick('壁走り', 100); }
         wallRun = 1.3; wallNX = n.x; wallNZ = n.z;
         refreshed = true;
       }
@@ -1563,6 +1592,11 @@ function step(dt) {
     vel.x += -wallNX * 3 * dt;          // 壁へ軽く吸着
     vel.z += -wallNZ * 3 * dt;
   } else {
+    airSteps++;
+    if (jumpCutPending) {
+      jumpCutPending = false;
+      if (!jumpCutDone && vel.y > 3.5 && climbT <= 0 && hangT <= 0 && vaultT <= 0) { vel.y *= 0.45; jumpCutDone = true; }
+    }
     vel.y -= 20 * dt;
   }
   if (vel.y < -26) vel.y = -26; // 落下速度の上限
@@ -1653,7 +1687,7 @@ function step(dt) {
     if (rollPressed && impact >= 11) {
       // タイミング受け身成功: どれだけ高い落下でも硬直なしでロールに流れる
       rollT = 0.0001; rollDur = 0.5; pendingRecover = 0;
-      if (impact >= 15.5) { showToast('受け身成功！'); seCP(); }
+      if (impact >= 15.5) { trick('受け身成功', 150); seCP(); }
     } else if (rollPressed && impact >= 5 && hSpd >= 4) {
       rollT = 0.0001; rollDur = 0.45;
     } else if (impact < 11) {
@@ -1715,6 +1749,7 @@ function step(dt) {
       seCP();
       const elapsed = (performance.now() - startTime) / 1000;
       splits.push(elapsed);
+      trick('チェックポイント', 200);
       document.getElementById('cp').textContent = cpIndex + ' / ' + cps.length;
       if (cpIndex === cps.length) {
         finished = true;
@@ -2071,8 +2106,12 @@ function showResult(t, prevBest, isBest) {
   document.getElementById('resBest').textContent = isBest
     ? (prevBest !== null ? '🎉 ベスト更新！（前回 ' + prevBest.toFixed(2) + ' 秒）' : '🎉 初ベスト記録！')
     : 'ベスト ' + prevBest.toFixed(2) + ' 秒（あと ' + (t - prevBest).toFixed(2) + ' 秒）';
+  let scoreNote = '';
+  const prevScoreBest = parseInt(store.get(KEY_BASE + '-bestscore') || '0', 10) || 0;
+  if (score > prevScoreBest) { store.set(KEY_BASE + '-bestscore', String(score)); scoreNote = ' ・ 🎉 スコア自己ベスト！'; }
   document.getElementById('resSplits').innerHTML =
-    splits.map((s, i) => 'CP' + (i + 1) + '： ' + s.toFixed(2) + ' 秒').join('<br>');
+    splits.map((s, i) => 'CP' + (i + 1) + '： ' + s.toFixed(2) + ' 秒').join('<br>') +
+    '<br>スコア： ' + score.toLocaleString() + ' 点（最大 ' + bestCombo + ' コンボ）' + scoreNote;
   document.getElementById('result').style.display = 'flex';
 }
 document.getElementById('btnRetry').addEventListener('click', () => {

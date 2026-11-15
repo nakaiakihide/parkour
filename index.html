@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v4.0（オーブ収集＋カメラアシスト）</title>
+<title>パルクール試作 v4.1（ルート一望をタップでスキップ）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -878,6 +878,9 @@ let rollBuf = 0; // ロールの先行入力バッファ（タイミング受け
 let hintFlags = {}; // 状況ヒントを出したかどうか（コースごとにリセット）
 let tutoredNow = false; // そのコースの初回プレイ（チュートリアル扱い）が終わったか
 let flyover = null, flyoverArmed = false; // スタート前のルート一望カメラ
+// 一望演出は画面のどこをタップしても、キー入力でも即スキップできる
+addEventListener('pointerdown', () => { if (flyover) flyover = null; });
+addEventListener('keydown', () => { if (flyover) flyover = null; });
 const orbs = [];
 let orbsGot = 0;
 const orbGeo = new THREE.SphereGeometry(0.38, 14, 10);
@@ -1316,7 +1319,7 @@ function reset() {
       legs.push({ a: wps[i], b: wps[i + 1], t0: acc, t1: acc + lt });
       acc += lt;
     }
-    if (legs.length) { flyover = { t: 0, dur: acc, legs }; showToast('ルート確認中…（操作するとスタート）'); }
+    if (legs.length) { flyover = { t: 0, dur: acc, legs }; showToast('ルート確認中…（画面タップでスキップ）'); }
   }
   updateCpMarkers();
   document.getElementById('cp').textContent = '0 / ' + cps.length;

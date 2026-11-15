@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v5.5（駅・線路・電車＋実在看板）</title>
+<title>パルクール試作 v5.6（線路を高架・複線に修正）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -1261,7 +1261,9 @@ const movingTrains = [];
 function buildRailway() {
   movingTrains.length = 0;
   const rail = CITY_DATA[COURSE].rail;
-  if (!rail || !rail.rails || !rail.trainPath || rail.trainPath.length < 2) return;
+  if (!rail || !rail.trainPath || rail.trainPath.length < 2) return;
+  // v5.6: 実地図に合わせ、全区間を高架の複線に統一（地上を走って道を塞がない／支線や側線は描かない）
+  const BED_Y = 7.0;
   const lists = new Map();
   const boxGeo = new THREE.BoxGeometry(1, 1, 1);
   const pushR = (mat, cx, cy, cz, sx, sy, sz, rotY) => {
@@ -1271,67 +1273,72 @@ function buildRailway() {
     if (!lists.has(mat)) lists.set(mat, []);
     lists.get(mat).push(g);
   };
+  const segDistP = (px, pz, s) => {
+    const dx = s.bx - s.ax, dz = s.bz - s.az;
+    const l2 = dx * dx + dz * dz || 1e-9;
+    let t = ((px - s.ax) * dx + (pz - s.az) * dz) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (s.ax + dx * t), pz - (s.az + dz * t));
+  };
   const ballastMat = new THREE.MeshLambertMaterial({ color: 0x3f3f42 });
   const viaMat = new THREE.MeshLambertMaterial({ color: 0x9aa0a3 });
   const steelMat = new THREE.MeshLambertMaterial({ color: 0x9aa2ab });
   const darkMat = new THREE.MeshLambertMaterial({ color: 0x2e3138 });
   const platMat = new THREE.MeshLambertMaterial({ color: 0xbdb5a5 });
   const canopyMat = new THREE.MeshLambertMaterial({ color: 0x546e7a });
-  let sleepers = 0;
-  for (const w of rail.rails) {
-    const bedY = w.el ? 6.5 : 0.35;
-    for (let i = 0; i < w.pts.length - 1; i++) {
-      const ax = w.pts[i][0], az = w.pts[i][1], bx = w.pts[i + 1][0], bz = w.pts[i + 1][1];
-      const len = Math.hypot(bx - ax, bz - az);
-      if (len < 0.5) continue;
-      const yaw = Math.atan2(bx - ax, bz - az);
-      const mx = (ax + bx) / 2, mz = (az + bz) / 2;
-      if (w.el) {
-        pushR(viaMat, mx, (bedY - 0.5) / 2, mz, 3.2, bedY - 0.5, len + 0.4, yaw);
-        const nP = Math.max(1, Math.floor(len / 26));
-        for (let p = 0; p <= nP; p++) {
-          const t = p / nP;
-          pushR(viaMat, ax + (bx - ax) * t, (bedY - 0.5) / 2, az + (bz - az) * t, 1.4, bedY - 0.5, 1.4, yaw);
-        }
-      }
-      pushR(ballastMat, mx, bedY - 0.15, mz, 3.5, 0.3, len + 0.4, yaw);
-      pushR(steelMat, mx - Math.cos(yaw) * 0.72, bedY + 0.08, mz + Math.sin(yaw) * 0.72, 0.09, 0.1, len, yaw);
-      pushR(steelMat, mx + Math.cos(yaw) * 0.72, bedY + 0.08, mz - Math.sin(yaw) * 0.72, 0.09, 0.1, len, yaw);
-      const nS = Math.floor(len / 3.2);
-      for (let si = 0; si < nS && sleepers < 1500; si++) {
-        const t = (si + 0.5) / nS;
-        pushR(darkMat, ax + (bx - ax) * t, bedY + 0.01, az + (bz - az) * t, 2.3, 0.05, 0.55, yaw);
-        sleepers++;
-      }
-    }
-  }
-  // 走行パスの累積距離とサンプリング
+  // パスの累積距離とサンプリング（高さは高架で統一）
   const path = rail.trainPath;
   const cum = [0];
   for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
   const total = cum[cum.length - 1];
   const sample = (s) => {
-    if (s < 0) {
-      const a = path[0], b = path[1], sl = cum[1] || 1;
-      const tx = (b[0] - a[0]) / sl, tz = (b[1] - a[1]) / sl;
-      return { x: a[0] + tx * s, z: a[1] + tz * s, y: a[2], tx, tz };
-    }
-    if (s > total) {
-      const a = path[path.length - 2], b = path[path.length - 1], sl = (total - cum[cum.length - 2]) || 1;
-      const tx = (b[0] - a[0]) / sl, tz = (b[1] - a[1]) / sl, d = s - total;
-      return { x: b[0] + tx * d, z: b[1] + tz * d, y: b[2], tx, tz };
-    }
+    s = Math.max(0, Math.min(total, s));
     let i = 1;
     while (i < cum.length - 1 && cum[i] < s) i++;
     const segLen = (cum[i] - cum[i - 1]) || 1;
     const t = (s - cum[i - 1]) / segLen;
     const a = path[i - 1], b = path[i];
     return {
-      x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, y: a[2] + (b[2] - a[2]) * t,
+      x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, y: BED_Y,
       tx: (b[0] - a[0]) / segLen, tz: (b[1] - a[1]) / segLen,
     };
   };
-  // 駅: パス上の最近点にホームを作る
+  // 高架橋・バラスト・レール・枕木（複線）
+  let sleepers = 0, pierDist = 0;
+  for (let s = 0; s < total - 1; s += 6) {
+    const a = sample(s), b = sample(Math.min(total, s + 6.5));
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    if (len < 0.5) continue;
+    const yaw = Math.atan2(b.x - a.x, b.z - a.z);
+    const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+    const cxv = Math.cos(yaw), czv = -Math.sin(yaw);
+    pushR(viaMat, mx, (BED_Y - 0.5) / 2, mz, 8.6, BED_Y - 0.5, len + 0.6, yaw);
+    pushR(ballastMat, mx, BED_Y - 0.15, mz, 9.2, 0.3, len + 0.6, yaw);
+    for (const off of [-3.1, 3.1]) {
+      pushR(steelMat, mx + cxv * (off - 0.72), BED_Y + 0.08, mz + czv * (off - 0.72), 0.09, 0.1, len, yaw);
+      pushR(steelMat, mx + cxv * (off + 0.72), BED_Y + 0.08, mz + czv * (off + 0.72), 0.09, 0.1, len, yaw);
+      const nS = Math.floor(len / 3.2);
+      for (let si = 0; si < nS && sleepers < 1600; si++) {
+        const t = (si + 0.5) / nS;
+        pushR(darkMat, a.x + (b.x - a.x) * t + cxv * off, BED_Y + 0.01, a.z + (b.z - a.z) * t + czv * off, 2.3, 0.05, 0.55, yaw);
+        sleepers++;
+      }
+    }
+    // 橋脚は道路・建物を避けて置く
+    pierDist += len;
+    if (pierDist >= 24) {
+      pierDist = 0;
+      const dxu = (b.x - a.x) / len, dzu = (b.z - a.z) / len;
+      for (const shift of [0, 6, -6, 12, -12]) {
+        const px = mx + dxu * shift, pz = mz + dzu * shift;
+        let bad = false;
+        for (const c of colliders) { if (!c.prop && !c.aux && px > c.minX - 0.5 && px < c.maxX + 0.5 && pz > c.minZ - 0.5 && pz < c.maxZ + 0.5) { bad = true; break; } }
+        if (!bad) for (const r of roadSegs) { if (!r.foot && segDistP(px, pz, r) < r.w / 2 + 1.2) { bad = true; break; } }
+        if (!bad) { pushR(viaMat, px, (BED_Y - 0.5) / 2, pz, 1.7, BED_Y - 0.5, 1.7, yaw); break; }
+      }
+    }
+  }
+  // 駅: ホームは高い建物に埋まる場所を避けて置く
   const st = rail.station;
   if (st && total > 200) {
     let bestS = 0, bestD = Infinity;
@@ -1340,40 +1347,57 @@ function buildRailway() {
       const d = Math.hypot(p.x - st.pos[0], p.z - st.pos[1]);
       if (d < bestD) { bestD = d; bestS = s; }
     }
-    const c = sample(bestS);
-    const yaw = Math.atan2(c.tx, c.tz);
-    const platTop = c.y + 1.15;
+    const insideTall = (x, z) => colliders.some(c => !c.prop && !c.aux && c.top > BED_Y + 2 && x > c.minX && x < c.maxX && z > c.minZ && z < c.maxZ);
+    let platS = bestS;
+    {
+      const c0 = sample(bestS);
+      if (insideTall(c0.x, c0.z)) {
+        platS = -1;
+        for (let d = 10; d <= 120 && platS < 0; d += 10) {
+          for (const cand of [bestS + d, bestS - d]) {
+            if (cand < 80 || cand > total - 80) continue;
+            const p = sample(cand);
+            if (!insideTall(p.x, p.z)) { platS = cand; break; }
+          }
+        }
+      }
+    }
     const shortName = st.name.replace(/駅$/, '');
     const hira = { '渋谷': 'しぶや', '池袋': 'いけぶくろ', '新宿': 'しんじゅく' }[shortName] || shortName;
     const roma = { '渋谷': 'Shibuya', '池袋': 'Ikebukuro', '新宿': 'Shinjuku' }[shortName] || '';
-    const platSignTex = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, map: canvasTex([512, 128], (g, w, h) => {
-      g.fillStyle = '#f4f6f4'; g.fillRect(0, 0, w, h);
-      g.fillStyle = '#009944'; g.fillRect(0, 0, w, 26);
-      g.fillStyle = '#1c2430'; g.textAlign = 'center';
-      g.font = 'bold 62px sans-serif'; g.fillText(shortName, w / 2, 82);
-      g.font = '28px sans-serif'; g.fillText(hira + '  ' + roma, w / 2, 118);
-    }, 1) });
-    for (const side of [-1, 1]) {
-      const ox = c.tz * side * 4.3, oz = -c.tx * side * 4.3;
-      const px = c.x + ox, pz = c.z + oz;
-      pushR(platMat, px, platTop - 0.55, pz, 5.0, 1.1, 150, yaw);
-      pushR(canopyMat, px, platTop + 3.3, pz, 5.4, 0.22, 118, yaw);
-      const cxp = Math.cos(yaw), czp = -Math.sin(yaw);
-      const corners = [];
-      for (const [lt, lp] of [[-75, -2.5], [75, -2.5], [75, 2.5], [-75, 2.5]]) {
-        corners.push([px + c.tx * lt + cxp * lp, pz + c.tz * lt + czp * lp]);
-      }
-      colliders.push({
-        pts: corners,
-        minX: Math.min(...corners.map(p => p[0])), maxX: Math.max(...corners.map(p => p[0])),
-        minZ: Math.min(...corners.map(p => p[1])), maxZ: Math.max(...corners.map(p => p[1])),
-        top: platTop,
-      });
-      for (let k = -1; k <= 1; k++) {
-        const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), platSignTex);
-        sign.position.set(px - c.tz * side * 1.9 + c.tx * k * 38, platTop + 2.55, pz + c.tx * side * 1.9 + c.tz * k * 38);
-        sign.rotation.y = yaw;
-        addCourseObject(sign);
+    if (platS >= 0) {
+      const c = sample(platS);
+      const yaw = Math.atan2(c.tx, c.tz);
+      const platTop = BED_Y + 1.15;
+      const platSignTex = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, map: canvasTex([512, 128], (g, w, h) => {
+        g.fillStyle = '#f4f6f4'; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#009944'; g.fillRect(0, 0, w, 26);
+        g.fillStyle = '#1c2430'; g.textAlign = 'center';
+        g.font = 'bold 62px sans-serif'; g.fillText(shortName, w / 2, 82);
+        g.font = '28px sans-serif'; g.fillText(hira + '  ' + roma, w / 2, 118);
+      }, 1) });
+      for (const side of [-1, 1]) {
+        const ox = c.tz * side * 7.2, oz = -c.tx * side * 7.2;
+        const px = c.x + ox, pz = c.z + oz;
+        pushR(platMat, px, platTop - 0.55, pz, 5.0, 1.1, 150, yaw);
+        pushR(canopyMat, px, platTop + 3.3, pz, 5.4, 0.22, 118, yaw);
+        const cxp = Math.cos(yaw), czp = -Math.sin(yaw);
+        const corners = [];
+        for (const [lt, lp] of [[-75, -2.5], [75, -2.5], [75, 2.5], [-75, 2.5]]) {
+          corners.push([px + c.tx * lt + cxp * lp, pz + c.tz * lt + czp * lp]);
+        }
+        colliders.push({
+          pts: corners,
+          minX: Math.min(...corners.map(p => p[0])), maxX: Math.max(...corners.map(p => p[0])),
+          minZ: Math.min(...corners.map(p => p[1])), maxZ: Math.max(...corners.map(p => p[1])),
+          top: platTop,
+        });
+        for (let k = -1; k <= 1; k++) {
+          const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), platSignTex);
+          sign.position.set(px - c.tz * side * 1.9 + c.tx * k * 38, platTop + 2.55, pz + c.tx * side * 1.9 + c.tz * k * 38);
+          sign.rotation.y = yaw;
+          addCourseObject(sign);
+        }
       }
     }
     // 駅名の大看板（駅位置に、コース中心を向ける）
@@ -1403,7 +1427,7 @@ function buildRailway() {
     addCourseObject(grp);
   }
   for (const [mat, geos] of lists) addCourseObject(mergeMeshes(geos, mat));
-  // 電車（山手線カラー・8両）
+  // 電車（山手線カラー・8両・左側通行で複線の片側を走る）
   const trainMat = new THREE.MeshLambertMaterial({ color: 0xc9ced4 });
   const trainGlass = new THREE.MeshLambertMaterial({ color: 0x232c34 });
   const stripeMat = new THREE.MeshLambertMaterial({ color: 0x80c241 });
@@ -1429,7 +1453,8 @@ function updateTrains(dt) {
     tr.cars.forEach((g, i) => {
       const off = (i - (tr.cars.length - 1) / 2) * tr.pitch;
       const p = tr.sample(tr.s + off);
-      g.position.set(p.x, p.y + 0.15, p.z);
+      const lx = p.tz * tr.dir, lz = -p.tx * tr.dir; // 進行方向の左側の線路
+      g.position.set(p.x + lx * 3.1, p.y + 0.15, p.z + lz * 3.1);
       g.rotation.y = Math.atan2(p.tx * tr.dir, p.tz * tr.dir);
     });
   }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v4.6（段差アシスト＋ベストゴースト）</title>
+<title>パルクール試作 v4.7（建物の見た目：窓の種類＋屋上の縁取り）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -184,6 +184,43 @@ const facadeTex = canvasTex([256, 256], (g, w, h) => {
     g.fillStyle = 'rgba(0,0,0,.13)'; g.fillRect(0, row * 62 + 60, w, 2);
   }
 }, 1 / 12);
+const facadeTexB = canvasTex([256, 256], (g, w, h) => {
+  // オフィス窓: 細かい格子＋濃いめの枠
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, '#d4d7dc'); gr.addColorStop(1, '#bfc3c9');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  speckle(g, w, h, 500, 0.04);
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 4; col++) {
+      const x = 10 + col * 63, y = 12 + row * 50;
+      g.fillStyle = '#4a4f55'; g.fillRect(x - 2, y - 2, 50, 36);
+      const lit = Math.random() < 0.18;
+      const wg = g.createLinearGradient(x, y, x, y + 32);
+      if (lit) { wg.addColorStop(0, '#ffe6ae'); wg.addColorStop(1, '#f2b95e'); }
+      else { wg.addColorStop(0, '#7d9db5'); wg.addColorStop(1, '#2c465e'); }
+      g.fillStyle = wg; g.fillRect(x, y, 46, 32);
+      g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(x, y, 46, 6);
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x + 22, y, 2, 32);
+    }
+    g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(0, row * 50 + 48, w, 2);
+  }
+}, 1 / 12);
+const facadeTexC = canvasTex([256, 256], (g, w, h) => {
+  // ガラス張りタワー: 暗い青灰＋密な窓＋反射のムラ
+  const gr = g.createLinearGradient(0, 0, w, h);
+  gr.addColorStop(0, '#66788c'); gr.addColorStop(1, '#46566a');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for (let row = 0; row < 6; row++) {
+    for (let col = 0; col < 6; col++) {
+      const x = 6 + col * 42, y = 8 + row * 42;
+      const v = Math.random();
+      g.fillStyle = v < 0.12 ? '#ffd98f' : (v < 0.5 ? '#93b4cc' : '#5d7d99');
+      g.fillRect(x, y, 36, 30);
+      g.fillStyle = 'rgba(255,255,255,.28)'; g.fillRect(x, y, 36, 5);
+    }
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, row * 42 + 40, w, 2);
+  }
+}, 1 / 12);
 const roofTex = canvasTex([256, 256], (g, w, h) => {
   g.fillStyle = '#82858a'; g.fillRect(0, 0, w, h);
   speckle(g, w, h, 1600, 0.07);
@@ -226,9 +263,12 @@ scene.add(ground);
 // 屋根＝当たり判定つきの箱として保持
 const colliders = []; // {minX,maxX,minZ,maxZ,top}
 // 建物の壁（窓テクスチャ＋色味バリエーション）と屋根のマテリアル
-const buildingMats = [0xffffff, 0xf3e9d7, 0xdfe7ef, 0xe9e3d3, 0xd9dfe8, 0xf6f1e5, 0xe3eaf2, 0xefe7d8]
-  .map(c => new THREE.MeshLambertMaterial({ color: c, map: facadeTex }));
+const facadeTints = [0xffffff, 0xf3e9d7, 0xdfe7ef, 0xe9e3d3, 0xd9dfe8];
+const buildingMats = [];
+for (const tex of [facadeTex, facadeTexB, facadeTexC])
+  for (const c of facadeTints) buildingMats.push(new THREE.MeshLambertMaterial({ color: c, map: tex }));
 const roofMat = new THREE.MeshLambertMaterial({ map: roofTex });
+const roofMats = [0xffffff, 0xccd0d4, 0xbdb2a2].map(c => new THREE.MeshLambertMaterial({ color: c, map: roofTex }));
 
 // ジオメトリを1つに結合する（描画回数を激減させる軽量化）
 function mergeMeshes(geos, material) {
@@ -283,7 +323,8 @@ function addBuilding(points, height) {
   const xs = points.map(p => p[0]), zs = points.map(p => p[1]);
   const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
   const hash = Math.abs(Math.round(points[0][0] * 31 + points[0][1] * 57 + height * 13));
-  const mi = hash % buildingMats.length;
+  const variant = height >= 25 ? 2 : height >= 10 ? 1 : 0; // 高い建物ほどガラス張り
+  const mi = variant * 5 + (hash % 5);
   const sx = Math.max(0, Math.min(3, Math.floor(((minX + maxX) / 2 + 400) / 200)));
   const sz = Math.max(0, Math.min(3, Math.floor(((minZ + maxZ) / 2 + 400) / 200)));
   const key = (sz * 4 + sx) * 16 + mi;
@@ -295,6 +336,38 @@ function addBuilding(points, height) {
     map.get(key).push(part);
   }
   colliders.push({ pts: points, minX, maxX, minZ, maxZ, top: height });
+  // 屋上の縁取り（パラペット）: 輪郭に沿った低い立ち上がり。建物らしく見せるため（当たり判定は付けない）
+  {
+    const cxm = (minX + maxX) / 2, czm = (minZ + maxZ) / 2;
+    const H = height, RH = 0.22, IN = 0.28;
+    const pos = [], nor = [], uvA = [];
+    const quad = (a, b, c, d, n) => {
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+      const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+      const cxp = uy * vz - uz * vy, cyp = uz * vx - ux * vz, czp = ux * vy - uy * vx;
+      if (cxp * n[0] + cyp * n[1] + czp * n[2] < 0) { const t = b; b = d; d = t; }
+      pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+      for (let i = 0; i < 6; i++) nor.push(n[0], n[1], n[2]);
+      uvA.push(0, 1, 1, 1, 1, 0.97, 0, 1, 1, 0.97, 0, 0.97);
+    };
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+      const ax = points[j][0], az = points[j][1], bx = points[i][0], bz = points[i][1];
+      const ex = bx - ax, ez = bz - az;
+      const el = Math.hypot(ex, ez); if (el < 0.6) continue;
+      let nx = ez / el, nz = -ex / el;
+      if (nx * ((ax + bx) / 2 - cxm) + nz * ((az + bz) / 2 - czm) < 0) { nx = -nx; nz = -nz; }
+      quad([ax, H, az], [bx, H, bz], [bx, H + RH, bz], [ax, H + RH, az], [nx, 0, nz]);
+      quad([ax, H + RH, az], [bx, H + RH, bz], [bx - nx * IN, H + RH, bz - nz * IN], [ax - nx * IN, H + RH, az - nz * IN], [0, 1, 0]);
+    }
+    if (pos.length) {
+      const rg = new THREE.BufferGeometry();
+      rg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+      rg.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nor), 3));
+      rg.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvA), 2));
+      if (!pendingWalls.has(key)) pendingWalls.set(key, []);
+      pendingWalls.get(key).push(rg);
+    }
+  }
 }
 function finalizeBuildings() {
   const keys = new Set([...pendingLids.keys(), ...pendingWalls.keys()]);
@@ -312,7 +385,7 @@ function finalizeBuildings() {
       addCourseObject(mesh);
     }
     if (pendingLids.has(key)) {
-      const mesh = mergeMeshes(pendingLids.get(key), roofMat);
+      const mesh = mergeMeshes(pendingLids.get(key), roofMats[(key % 16) % 3]);
       mesh.receiveShadow = true;
       Object.assign(mesh.userData, bounds);
       buildingChunks.push(mesh);

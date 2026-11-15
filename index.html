@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v5.6（線路を高架・複線に修正）</title>
+<title>パルクール試作 v5.7（高架の下をくぐれるように修正）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -1312,7 +1312,7 @@ function buildRailway() {
     const yaw = Math.atan2(b.x - a.x, b.z - a.z);
     const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
     const cxv = Math.cos(yaw), czv = -Math.sin(yaw);
-    pushR(viaMat, mx, (BED_Y - 0.5) / 2, mz, 8.6, BED_Y - 0.5, len + 0.6, yaw);
+    pushR(viaMat, mx, BED_Y - 0.7, mz, 8.6, 1.4, len + 0.6, yaw); // 床版は上部だけ（下は開ける）
     pushR(ballastMat, mx, BED_Y - 0.15, mz, 9.2, 0.3, len + 0.6, yaw);
     for (const off of [-3.1, 3.1]) {
       pushR(steelMat, mx + cxv * (off - 0.72), BED_Y + 0.08, mz + czv * (off - 0.72), 0.09, 0.1, len, yaw);
@@ -1334,7 +1334,7 @@ function buildRailway() {
         let bad = false;
         for (const c of colliders) { if (!c.prop && !c.aux && px > c.minX - 0.5 && px < c.maxX + 0.5 && pz > c.minZ - 0.5 && pz < c.maxZ + 0.5) { bad = true; break; } }
         if (!bad) for (const r of roadSegs) { if (!r.foot && segDistP(px, pz, r) < r.w / 2 + 1.2) { bad = true; break; } }
-        if (!bad) { pushR(viaMat, px, (BED_Y - 0.5) / 2, pz, 1.7, BED_Y - 0.5, 1.7, yaw); break; }
+        if (!bad) { pushR(viaMat, px, (BED_Y - 1.4) / 2, pz, 1.7, BED_Y - 1.4, 1.7, yaw); break; }
       }
     }
   }
@@ -1381,6 +1381,12 @@ function buildRailway() {
         const px = c.x + ox, pz = c.z + oz;
         pushR(platMat, px, platTop - 0.55, pz, 5.0, 1.1, 150, yaw);
         pushR(canopyMat, px, platTop + 3.3, pz, 5.4, 0.22, 118, yaw);
+        for (let k = -3; k <= 3; k++) {
+          const sx2 = px + c.tx * k * 21, sz2 = pz + c.tz * k * 21;
+          let bad2 = false;
+          for (const r of roadSegs) { if (!r.foot && segDistP(sx2, sz2, r) < r.w / 2 + 1.0) { bad2 = true; break; } }
+          if (!bad2) pushR(viaMat, sx2, (platTop - 1.1) / 2, sz2, 0.9, platTop - 1.1, 0.9, yaw);
+        }
         const cxp = Math.cos(yaw), czp = -Math.sin(yaw);
         const corners = [];
         for (const [lt, lp] of [[-75, -2.5], [75, -2.5], [75, 2.5], [-75, 2.5]]) {

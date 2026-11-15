@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v5.1（新宿の建物を実測形状LOD2に）</title>
+<title>パルクール試作 v5.2（LOD3風：壁に窓を自動生成）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -278,6 +278,14 @@ for (const tex of [facadeTex, facadeTexB, facadeTexC])
 const roofMat = new THREE.MeshLambertMaterial({ map: roofTex });
 const roofMats = [0xffffff, 0xccd0d4, 0xbdb2a2].map(c => new THREE.MeshLambertMaterial({ color: c, map: roofTex }));
 const slopeMats = [0x6e5b4c, 0x5d646e].map(c => new THREE.MeshLambertMaterial({ color: c, map: roofTex })); // 勾配屋根用
+const wallPlainTex = canvasTex([128, 128], (g, w, h) => {
+  g.fillStyle = '#c9ccd1'; g.fillRect(0, 0, w, h);
+  speckle(g, w, h, 500, 0.05);
+}, 1 / 12);
+const plainMats = facadeTints.map(c => new THREE.MeshLambertMaterial({ color: c, map: wallPlainTex })); // LOD2壁用（窓は立体で付ける）
+const glassMats = [0x46657f, 0x39536b].map(c => new THREE.MeshLambertMaterial({ color: c, emissive: 0x0a141f })); // 窓ガラス用
+const pendingWalls2 = new Map(), pendingGlass = new Map(); // LOD2壁（無地）／窓ガラス（頂点配列を貯める）
+let winBudget = 0;
 
 // ジオメトリを1つに結合する（描画回数を激減させる軽量化）
 function mergeMeshes(geos, material) {
@@ -372,7 +380,37 @@ function addBuilding(points, height, surfs) {
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
       g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nor), 3));
       g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvA), 2));
-      const map = t === 0 ? pendingWalls : (Math.abs(ny) > 0.85 ? pendingLids : pendingSlope);
+      const map = t === 0 ? pendingWalls2 : (Math.abs(ny) > 0.85 ? pendingLids : pendingSlope);
+      if (t === 0 && Math.abs(ny) < 0.3) {
+        // LOD3風: 壁の内側に収まる窓グリッドを自動生成する（実データに窓情報がないための代替）
+        const us = ring.map(p => p[0] * rx + p[2] * rz);
+        const umin = Math.min(...us), umax = Math.max(...us);
+        const ymin = Math.min(...ring.map(p => p[1])), ymax = Math.max(...ring.map(p => p[1]));
+        if (umax - umin >= 3 && ymax - ymin >= 3) {
+          const poly2 = ring.map(p => [p[0] * rx + p[2] * rz, p[1]]);
+          const inside2 = (u, y) => {
+            let ins = false;
+            for (let i = 0, j = poly2.length - 1; i < poly2.length; j = i++) {
+              const [xi, yi] = poly2[i], [xj, yj] = poly2[j];
+              if ((yi > y) !== (yj > y) && u < (xj - xi) * (y - yi) / (yj - yi) + xi) ins = !ins;
+            }
+            return ins;
+          };
+          if (!pendingGlass.has(key)) pendingGlass.set(key, { pos: [], nor: [], uvA: [] });
+          const acc = pendingGlass.get(key);
+          const u0 = us[0], bx = ring[0][0], bz = ring[0][2];
+          for (let fy = ymin + 1.1; fy + 1.4 <= ymax - 0.4 && winBudget < 26000; fy += 3.0) {
+            for (let fu = umin + 0.9; fu + 1.3 <= umax - 0.6 && winBudget < 26000; fu += 2.3) {
+              if (!inside2(fu + 0.65, fy + 0.7)) continue;
+              const corner = (u, y) => [bx + rx * (u - u0) + nx * 0.04, y, bz + rz * (u - u0) + nz * 0.04];
+              const q = [corner(fu, fy), corner(fu + 1.3, fy), corner(fu + 1.3, fy + 1.4), corner(fu, fy + 1.4)];
+              for (const p of [q[0], q[1], q[2], q[0], q[2], q[3]]) { acc.pos.push(p[0], p[1], p[2]); acc.nor.push(nx, ny, nz); }
+              acc.uvA.push(0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1);
+              winBudget++;
+            }
+          }
+        }
+      }
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(g);
     }
@@ -421,7 +459,7 @@ function addBuilding(points, height, surfs) {
   }
 }
 function finalizeBuildings() {
-  const keys = new Set([...pendingLids.keys(), ...pendingWalls.keys(), ...pendingSlope.keys()]);
+  const keys = new Set([...pendingLids.keys(), ...pendingWalls.keys(), ...pendingSlope.keys(), ...pendingWalls2.keys(), ...pendingGlass.keys()]);
   for (const key of keys) {
     const sector = Math.floor(key / 16);
     const bounds = {
@@ -431,6 +469,24 @@ function finalizeBuildings() {
     if (pendingWalls.has(key)) {
       const mesh = mergeMeshes(pendingWalls.get(key), buildingMats[key % 16]);
       mesh.castShadow = true; mesh.receiveShadow = true;
+      Object.assign(mesh.userData, bounds);
+      buildingChunks.push(mesh);
+      addCourseObject(mesh);
+    }
+    if (pendingWalls2.has(key)) {
+      const mesh = mergeMeshes(pendingWalls2.get(key), plainMats[(key % 16) % 5]);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      Object.assign(mesh.userData, bounds);
+      buildingChunks.push(mesh);
+      addCourseObject(mesh);
+    }
+    if (pendingGlass.has(key)) {
+      const acc = pendingGlass.get(key);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(acc.pos), 3));
+      g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(acc.nor), 3));
+      g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(acc.uvA), 2));
+      const mesh = new THREE.Mesh(g, glassMats[(key % 16) % 2]);
       Object.assign(mesh.userData, bounds);
       buildingChunks.push(mesh);
       addCourseObject(mesh);
@@ -453,6 +509,9 @@ function finalizeBuildings() {
   pendingLids.clear();
   pendingWalls.clear();
   pendingSlope.clear();
+  pendingWalls2.clear();
+  pendingGlass.clear();
+  winBudget = 0;
 }
 
 // ---- ポリゴン判定（建物の実際の形で当たり判定する） ----

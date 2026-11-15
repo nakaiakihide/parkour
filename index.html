@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v6.4（線路と建物のめり込みを再修正）</title>
+<title>パルクール試作 v6.5（ホーム画面＝ロビーを追加）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -25,13 +25,29 @@
     color:#fff; background:rgba(8,14,20,.78); border:2px solid rgba(255,255,255,.4); border-radius:12px; pointer-events:auto; cursor:pointer; }
   #pauseLabel { position:absolute; top:38%; left:50%; transform:translateX(-50%); z-index:20; pointer-events:none;
     color:#fff; font-size:22px; font-weight:bold; background:rgba(0,0,0,.55); padding:10px 22px; border-radius:16px; display:none; }
-  #courseUI { position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center;
-    background:rgba(5,10,16,.74); }
+  #courseUI { position:absolute; inset:0; z-index:30; display:block;
+    background:linear-gradient(180deg, rgba(5,10,16,.42), rgba(5,10,16,0) 26%, rgba(5,10,16,0) 58%, rgba(5,10,16,.5)); }
+  #lobbyTop { position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:flex-start; padding:14px 18px; }
+  #lobbyLogo { color:#fff; font-size:30px; font-weight:900; letter-spacing:1px; text-shadow:0 2px 8px rgba(0,0,0,.65); line-height:1.15; }
+  #lobbyLogo .logo-sub { font-size:12px; font-weight:bold; letter-spacing:2px; color:#ffcc00; }
+  #lobbyChips { display:flex; gap:8px; }
+  .chip { color:#fff; background:rgba(8,14,20,.72); border:1.5px solid rgba(255,255,255,.4); border-radius:999px; padding:7px 13px; font-size:13px; font-weight:bold; white-space:nowrap; }
+  #lobbyLeft { position:absolute; left:18px; bottom:78px; display:flex; flex-direction:column; gap:10px; width:212px; }
+  #btnStartRun { background:#ffcc00; color:#131a21; border:none; border-radius:14px; padding:17px 10px; font-size:22px; font-weight:900; box-shadow:0 4px 16px rgba(0,0,0,.45); cursor:pointer; }
+  #btnHowTo { background:rgba(8,14,20,.72); color:#fff; border:1.5px solid rgba(255,255,255,.45); border-radius:12px; padding:11px 10px; font-size:14px; font-weight:bold; cursor:pointer; }
+  #howtoPanel { display:none; background:rgba(8,14,20,.88); color:#fff; border:1.5px solid rgba(255,255,255,.35); border-radius:12px; padding:10px 12px; font-size:12px; line-height:1.75; }
+  #lobbyRight { position:absolute; right:18px; top:50%; transform:translateY(-50%); width:min(302px, 40%); }
+  .lobby-panel-title { color:#fff; font-size:13px; font-weight:bold; letter-spacing:2px; margin-bottom:2px; text-shadow:0 1px 4px rgba(0,0,0,.85); }
+  #lobbyBottom { position:absolute; left:0; right:0; bottom:0; text-align:center; padding-bottom:12px; pointer-events:none; }
+  #lobbyCharName { display:inline-block; color:#fff; background:rgba(8,14,20,.66); border:1.5px solid rgba(255,255,255,.4); border-radius:999px; padding:6px 20px; font-size:15px; font-weight:bold; }
+  #lobbyHint { color:#fff; font-size:12px; opacity:.94; margin-top:8px; text-shadow:0 1px 3px rgba(0,0,0,.9); }
+  #app.lobby #map, #app.lobby #mapInfo, #app.lobby .btn, #app.lobby #courseBtn, #app.lobby #btnPause, #app.lobby #msg { display:none !important; }
   .course-card { text-align:center; color:#fff; width:min(420px, 86%); }
   .course-title { font-size:27px; font-weight:bold; margin-bottom:4px; }
   .course-sub { font-size:13px; opacity:.85; margin-bottom:14px; }
-  .course-btn { display:block; width:100%; margin:10px 0; padding:15px; font-size:19px; font-weight:bold;
-    border-radius:14px; border:2px solid rgba(255,255,255,.5); background:rgba(255,255,255,.12); color:#fff; line-height:1.35; }
+  .course-btn { display:block; width:100%; margin:8px 0; padding:13px 15px; font-size:18px; font-weight:bold; text-align:left;
+    border-radius:14px; border:2px solid rgba(255,255,255,.5); background:rgba(8,14,20,.62); color:#fff; line-height:1.35; cursor:pointer; }
+  #result .course-btn { text-align:center; }
   .course-btn small { font-size:12px; font-weight:normal; opacity:.85; }
   .course-btn.sel { border-color:#ffcc00; background:rgba(255,204,0,.18); }
   #result { position:absolute; inset:0; z-index:25; display:none; align-items:center; justify-content:center;
@@ -75,12 +91,27 @@
 <body>
 <div id="app">
 <div id="courseUI">
-  <div class="course-card">
-    <div class="course-title">🏃 パルクール試作</div>
-    <div class="course-sub">コースを選んでスタート（ゴースト・ベストはコース別）</div>
+  <div id="lobbyTop">
+    <div id="lobbyLogo">TOKYO PARKOUR<div class="logo-sub">実在の街を駆ける ｜ パルクール試作</div></div>
+    <div id="lobbyChips">
+      <div class="chip">👤 ランナー</div>
+      <div class="chip" id="chipBest">🏆 記録なし</div>
+    </div>
+  </div>
+  <div id="lobbyLeft">
+    <button id="btnStartRun">▶ スタート</button>
+    <button id="btnHowTo">❓ 遊び方</button>
+    <div id="howtoPanel">左スティック：移動<br>右ボタン：ジャンプ／スライディング／ダッシュ／ロール<br>画面ドラッグ：視点<br>壁のそばで空中ジャンプ連打：壁キック<br>縁に近づくと自動でつかむ。チェックポイントを5つ回ってゴール。</div>
+  </div>
+  <div id="lobbyRight">
+    <div class="lobby-panel-title">コース選択</div>
     <button class="course-btn" id="btnShibuya">🗼 渋谷<br><small>スクランブル交差点・屋根コース</small></button>
     <button class="course-btn" id="btnIkebukuro">🌃 池袋<br><small>駅前・高層ビル街コース</small></button>
     <button class="course-btn" id="btnShinjuku">🚃 新宿<br><small>東口・歌舞伎町コース</small></button>
+  </div>
+  <div id="lobbyBottom">
+    <div id="lobbyCharName">🏃 ランナー</div>
+    <div id="lobbyHint">コースを選んで「スタート」 ｜ ゴースト・ベストはコース別に保存されます</div>
   </div>
 </div>
 <button id="courseBtn">🗺 コース</button>
@@ -1109,9 +1140,10 @@ let rollBuf = 0; // ロールの先行入力バッファ（タイミング受け
 let hintFlags = {}; // 状況ヒントを出したかどうか（コースごとにリセット）
 let tutoredNow = false; // そのコースの初回プレイ（チュートリアル扱い）が終わったか
 let flyover = null, flyoverArmed = false; // スタート前のルート一望カメラ
+let lobbyMode = true, lobbyT = 0; // ホーム画面（ロビー）表示中か
 // 一望演出は画面のどこをタップしても、キー入力でも即スキップできる
-addEventListener('pointerdown', () => { if (flyover) flyover = null; });
-addEventListener('keydown', () => { if (flyover) flyover = null; });
+addEventListener('pointerdown', () => { if (flyover && !lobbyMode) flyover = null; });
+addEventListener('keydown', () => { if (flyover && !lobbyMode) flyover = null; });
 let score = 0, combo = 0, comboT = 0, bestCombo = 0, trickCd = {}; // コンボスコア
 let jumpCutPending = false, jumpCutDone = true, airSteps = 0; // 可変ジャンプ（長押しで高く）
 let airPeak = 0; // 空中での足元の最高到達点（ドロップボーナス判定用）
@@ -2262,6 +2294,16 @@ function tryWallKick() {
 
 function step(dt) {
   if (mapOpen) { if (started && !finished) startTime += dt * 1000; return; } // 全体マップを開いている間はタイマーを止める
+  // ホーム画面（ロビー）: スタート地点で立つキャラの周りをカメラがゆっくり回る
+  if (lobbyMode) {
+    lobbyT += dt;
+    const px = player.position.x, py = player.position.y, pz = player.position.z;
+    const a = lobbyT * 0.1;
+    camera.position.set(px + Math.sin(a) * 5.4, py + 1.5, pz + Math.cos(a) * 5.4);
+    camera.lookAt(px, py + 0.1, pz);
+    player.rotation.y = a;
+    return;
+  }
   // スタート前のルート一望カメラ: 順路の上空を流れる。操作されたら即スタート
   if (flyover) {
     if (wantJump || wantSlide || wantDash || Math.hypot(joy.x, joy.y) > 0.3 || keys.Space || keys.KeyW) { flyover = null; return; }
@@ -2839,6 +2881,7 @@ async function buildCourse(key) {
   buildStaticMap();
   flyoverArmed = true; // コースに入ったら、まずルートを一望する
   reset();
+  if (lobbyMode) fixLobbyPlayer();
   if (sub) sub.textContent = 'コースを選んでスタート（ゴースト・ベストはコース別）';
   document.getElementById('courseName').textContent = COURSE_NAMES[key] || key;
   document.getElementById('btnShibuya').classList.toggle('sel', key === 'shibuya');
@@ -3107,7 +3150,7 @@ document.getElementById('btnRetry').addEventListener('click', () => {
 });
 document.getElementById('btnCourse2').addEventListener('click', () => {
   document.getElementById('result').style.display = 'none';
-  courseUI.style.display = 'flex';
+  setLobby(true);
 });
 
 // ---- 一時停止 ----
@@ -3132,31 +3175,64 @@ function refreshCourseBests() {
     const b = parseFloat(store.get(k + '-touch-best') || '');
     small.textContent = small.dataset.desc + (isFinite(b) ? ' ・ベスト ' + b.toFixed(2) + '秒' : '');
   }
+  const chip = document.getElementById('chipBest');
+  if (chip) {
+    const bb = parseFloat(store.get(COURSE + '-touch-best') || '');
+    chip.textContent = '🏆 ' + (COURSE_NAMES[COURSE] || COURSE) + (isFinite(bb) ? ' ベスト ' + bb.toFixed(2) + '秒' : ' 記録なし');
+  }
+  const nm = document.getElementById('lobbyCharName');
+  if (nm) nm.textContent = '🏃 ランナー ｜ ' + (COURSE_NAMES[COURSE] || COURSE) + 'コース';
 }
-document.getElementById('btnNextCourse').addEventListener('click', () => {
+document.getElementById('btnNextCourse').addEventListener('click', async () => {
   document.getElementById('result').style.display = 'none';
-  chooseCourse(nextCourseKey());
+  await chooseCourse(nextCourseKey());
+  setLobby(false);
 });
 
 // ---- コース選択 ----
 const courseUI = document.getElementById('courseUI');
+document.getElementById('app').classList.add('lobby');
+function setLobby(v) {
+  lobbyMode = v;
+  courseUI.style.display = v ? 'block' : 'none';
+  document.getElementById('app').classList.toggle('lobby', v);
+  if (v) fixLobbyPlayer();
+}
+// ロビー中は物理が回らずスポーンの沈み込みが直らないので、足元の屋根の高さに合わせ直す
+function fixLobbyPlayer() {
+  if (!colliders.length) return;
+  const px = player.position.x, pz = player.position.z, feet = player.position.y - 0.9;
+  let best = null;
+  for (const c of colliders) {
+    if (c.prop || !c.pts) continue;
+    if (px < c.minX || px > c.maxX || pz < c.minZ || pz > c.maxZ) continue;
+    if (c.top > feet + 6) continue; // 別ビルの被さりなど異常な重なりは除く
+    if (pointInPoly(px, pz, c.pts) && (best === null || c.top > best)) best = c.top;
+  }
+  if (best !== null) player.position.y = best + 0.9;
+}
 document.getElementById('courseName').textContent = COURSE_NAMES[COURSE] || COURSE;
 document.getElementById({ shibuya: 'btnShibuya', ikebukuro: 'btnIkebukuro', shinjuku: 'btnShinjuku' }[COURSE]).classList.add('sel');
 async function chooseCourse(c) {
   if (building) return;
-  if (c === COURSE) {
-    if (built) courseUI.style.display = 'none';
-    return;
-  }
+  if (c === COURSE) return; // ロビーでは選択だけ。スタートは専用ボタンで
   store.set('parkour-course', c);
-  courseUI.style.display = 'flex';
   await buildCourse(c);
-  courseUI.style.display = 'none';
+  refreshCourseBests();
 }
 document.getElementById('btnShibuya').addEventListener('click', () => chooseCourse('shibuya'));
 document.getElementById('btnIkebukuro').addEventListener('click', () => chooseCourse('ikebukuro'));
 document.getElementById('btnShinjuku').addEventListener('click', () => chooseCourse('shinjuku'));
-document.getElementById('courseBtn').addEventListener('click', () => { courseUI.style.display = 'flex'; });
+document.getElementById('courseBtn').addEventListener('click', () => { flyover = null; setLobby(true); });
+document.getElementById('btnStartRun').addEventListener('click', () => {
+  if (building || !built) return;
+  setLobby(false);
+  if (flyover) showToast('ルート確認中…（画面タップでスキップ）');
+});
+document.getElementById('btnHowTo').addEventListener('click', () => {
+  const p = document.getElementById('howtoPanel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+});
 
 const clock = new THREE.Clock();
 let physAcc = 0;

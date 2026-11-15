@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v6.8（ロビーを提供デザインに差し替え）</title>
+<title>パルクール試作 v6.9（全フォントをロビーのフォントに統一）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -102,7 +102,15 @@
   #lobbyArtBox { position:relative; aspect-ratio:1206/678; width:min(100%, calc(100vh * 1206 / 678)); max-height:100%; }
   #lobbyArtBox img { position:absolute; inset:0; width:100%; height:100%; display:block; }
   #courseUI .hotspot { position:absolute !important; background:transparent !important; border:none !important; margin:0; padding:0; cursor:pointer; z-index:3; }
+
+  /* フォント統一：ロビーのキービジュアルの書体に合わせる */
+  html, body, #app, #app * { font-family:'Montserrat','Noto Sans JP',sans-serif !important; }
+  .course-btn, .course-title, .btn, #time, #score, #resTime, #toast, #msg, #cpdist, #courseBtn, #btnPause, #btnSelectBack { font-style:italic; }
+  .course-btn, .course-title, #time, #resTime { font-weight:900; }
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,800;0,900;1,700;1,800;1,900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/lobby.css">
 </head>
 <body>
@@ -1549,8 +1557,8 @@ function buildRailway() {
         g.fillStyle = '#f4f6f4'; g.fillRect(0, 0, w, h);
         g.fillStyle = '#009944'; g.fillRect(0, 0, w, 26);
         g.fillStyle = '#1c2430'; g.textAlign = 'center';
-        g.font = 'bold 62px sans-serif'; g.fillText(shortName, w / 2, 82);
-        g.font = '28px sans-serif'; g.fillText(hira + '  ' + roma, w / 2, 118);
+        g.font = 'bold 62px "Montserrat","Noto Sans JP",sans-serif'; g.fillText(shortName, w / 2, 82);
+        g.font = '28px "Montserrat","Noto Sans JP",sans-serif'; g.fillText(hira + '  ' + roma, w / 2, 118);
       }, 1) });
       for (const side of [-1, 1]) {
         const ox = c.tz * side * 7.2, oz = -c.tx * side * 7.2;
@@ -1586,8 +1594,8 @@ function buildRailway() {
     const bigTex = canvasTex([1024, 192], (g, w, h) => {
       g.fillStyle = '#009944'; g.fillRect(0, 0, w, h);
       g.fillStyle = '#fff'; g.textAlign = 'center';
-      g.font = 'bold 104px sans-serif'; g.fillText(shortName + '駅', w / 2, 118);
-      g.font = 'bold 40px sans-serif'; g.fillText(roma.toUpperCase() + ' STATION', w / 2, 172);
+      g.font = 'bold 104px "Montserrat","Noto Sans JP",sans-serif'; g.fillText(shortName + '駅', w / 2, 118);
+      g.font = 'bold 40px "Montserrat","Noto Sans JP",sans-serif'; g.fillText(roma.toUpperCase() + ' STATION', w / 2, 172);
     }, 1);
     const grp = new THREE.Group();
     const board = new THREE.Mesh(new THREE.BoxGeometry(13, 2.3, 0.4), darkMat);
@@ -1676,14 +1684,14 @@ function addCityDetail() {
     signTexV.push(new THREE.MeshBasicMaterial({ map: canvasTex([128, 256], (g, w, h) => {
       g.fillStyle = bg; g.fillRect(0, 0, w, h);
       g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 6; g.strokeRect(5, 5, w - 10, h - 10);
-      g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = 'bold 56px sans-serif';
+      g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = 'bold 56px "Montserrat","Noto Sans JP",sans-serif';
       [...name].forEach((ch, j) => g.fillText(ch, w / 2, 78 + j * 62));
     }, 1) }));
     const name2 = NAMES_H[(i * 2 + 5) % NAMES_H.length];
     signTexH.push(new THREE.MeshBasicMaterial({ map: canvasTex([512, 128], (g, w, h) => {
       g.fillStyle = BGCS[(i + 3) % BGCS.length]; g.fillRect(0, 0, w, h);
       g.fillStyle = 'rgba(255,255,255,.16)'; g.fillRect(0, h - 26, w, 26);
-      g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = 'bold 74px sans-serif';
+      g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = 'bold 74px "Montserrat","Noto Sans JP",sans-serif';
       g.fillText(name2, w / 2, 88);
     }, 1) }));
   }
@@ -1743,7 +1751,7 @@ function addCityDetail() {
         g.fillStyle = '#fff'; g.textAlign = 'center';
         const chars = [...nm];
         const fs = chars.length > 7 ? 44 : 56;
-        g.font = 'bold ' + fs + 'px sans-serif';
+        g.font = 'bold ' + fs + 'px "Montserrat","Noto Sans JP",sans-serif';
         const step = Math.min(62, (h - 90) / chars.length);
         chars.forEach((ch, j) => g.fillText(ch, w / 2, 84 + j * step));
       }, 1) });
@@ -2913,7 +2921,7 @@ async function buildCourse(key) {
   built = true;
   building = false;
 }
-setTimeout(() => { buildCourse(COURSE); }, 50);
+Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1200))]).then(() => buildCourse(COURSE));
 
 // ミニマップ（左上）: 建物・CP・ゴースト・自分の向き
 // ミニマップ用の静止画を最初に1回だけ描く（毎フレーム描くと重いため）
@@ -3004,7 +3012,7 @@ function drawMap() {
   ctx.lineTo(pcx - dx * 6 - px * 5, pcy - dz * 6 - pz * 5);
   ctx.closePath(); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.85)';
-  ctx.font = 'bold 11px sans-serif';
+  ctx.font = 'bold 11px "Montserrat","Noto Sans JP",sans-serif';
   ctx.fillText('N', C - 3, 14);
 }
 
@@ -3077,7 +3085,7 @@ function drawBigMap() {
     ctx.fillStyle = c.done ? '#39d353' : (i === cpIndex ? '#ffcc00' : 'rgba(255,204,0,.6)');
     ctx.beginPath(); ctx.arc(x, y, i === cpIndex ? 17 : 12, 0, 7); ctx.fill();
     ctx.fillStyle = '#10161d';
-    ctx.font = 'bold 19px sans-serif';
+    ctx.font = 'bold 19px "Montserrat","Noto Sans JP",sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(String(i + 1), x, y);
     if (i === cpIndex) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, 26, 0, 7); ctx.stroke(); }
@@ -3096,11 +3104,11 @@ function drawBigMap() {
   ctx.closePath(); ctx.fill();
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 13px sans-serif';
+  ctx.font = 'bold 13px "Montserrat","Noto Sans JP",sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('現在地', pcx, pcy + 34);
   ctx.fillStyle = 'rgba(255,255,255,.9)';
-  ctx.font = 'bold 20px sans-serif';
+  ctx.font = 'bold 20px "Montserrat","Noto Sans JP",sans-serif';
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
   ctx.fillText('北 ↑', W - 16, 56);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';

@@ -1480,6 +1480,36 @@ function addCityDetail() {
     }, 1) }));
   }
 
+  const storeMat = new THREE.MeshLambertMaterial({ color: 0x2c3844 });
+  const awnMats = [0xc23b2e, 0x1f6fb2, 0x1d9e75].map(c => new THREE.MeshLambertMaterial({ color: c }));
+  const vendMats = [0xd43a2f, 0x2456c8, 0xe8e8e8].map(c => new THREE.MeshBasicMaterial({ color: c }));
+  const poleMat = new THREE.MeshLambertMaterial({ color: 0x4a423a });
+  const tankMat = new THREE.MeshLambertMaterial({ color: 0xb9bdc2 });
+  const antMat = new THREE.MeshLambertMaterial({ color: 0x666c74 });
+  const segDist = (px, pz, s) => {
+    const dx = s.bx - s.ax, dz = s.bz - s.az;
+    const l2 = dx * dx + dz * dz || 1e-9;
+    let t = ((px - s.ax) * dx + (pz - s.az) * dz) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (s.ax + dx * t), pz - (s.az + dz * t));
+  };
+  const roads = roadSegs.filter(s => !s.foot && s.w >= 5);
+  movingCars.length = 0;
+  const pushRot = (mat, cx, cy, cz, sx, sy, sz, rotY, cyl) => {
+    const g = (cyl ? cylGeo : boxGeo).clone();
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotY, 0));
+    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(cx, cy, cz), q, new THREE.Vector3(sx, sy, sz)));
+    if (!lists.has(mat)) lists.set(mat, []);
+    lists.get(mat).push(g);
+  };
+  const carMats = [0xe8e8e8, 0xb9bec6, 0x2b2f36, 0xc23b2e, 0x2456c8, 0xf2b705].map(c => new THREE.MeshLambertMaterial({ color: c }));
+  const carGlassMat = new THREE.MeshLambertMaterial({ color: 0x223140 });
+  const railMat = new THREE.MeshLambertMaterial({ color: 0xb9c0c7 });
+  const sigRed = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
+  const sigGreen = new THREE.MeshBasicMaterial({ color: 0x2aff5a });
+  const sigDark = new THREE.MeshLambertMaterial({ color: 0x1c1f24 });
+  let nSign = 0, nBoard = 0, nStore = 0, nVend = 0, nTank = 0, nAnt = 0;
+  const hosts = colliders.filter(c => !c.prop && !c.aux);
   // ランドマーク看板: 駅近くの高い建物に実在の目印の名前を大きく掲げる
   {
     const LANDMARKS = {
@@ -1522,36 +1552,6 @@ function addCityDetail() {
       else pushTo(tex, best.wall + best.n * 0.75, y, o.cz, 0.6, signH, 1.5, false);
     });
   }
-  const storeMat = new THREE.MeshLambertMaterial({ color: 0x2c3844 });
-  const awnMats = [0xc23b2e, 0x1f6fb2, 0x1d9e75].map(c => new THREE.MeshLambertMaterial({ color: c }));
-  const vendMats = [0xd43a2f, 0x2456c8, 0xe8e8e8].map(c => new THREE.MeshBasicMaterial({ color: c }));
-  const poleMat = new THREE.MeshLambertMaterial({ color: 0x4a423a });
-  const tankMat = new THREE.MeshLambertMaterial({ color: 0xb9bdc2 });
-  const antMat = new THREE.MeshLambertMaterial({ color: 0x666c74 });
-  const segDist = (px, pz, s) => {
-    const dx = s.bx - s.ax, dz = s.bz - s.az;
-    const l2 = dx * dx + dz * dz || 1e-9;
-    let t = ((px - s.ax) * dx + (pz - s.az) * dz) / l2;
-    t = Math.max(0, Math.min(1, t));
-    return Math.hypot(px - (s.ax + dx * t), pz - (s.az + dz * t));
-  };
-  const roads = roadSegs.filter(s => !s.foot && s.w >= 5);
-  movingCars.length = 0;
-  const pushRot = (mat, cx, cy, cz, sx, sy, sz, rotY, cyl) => {
-    const g = (cyl ? cylGeo : boxGeo).clone();
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotY, 0));
-    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(cx, cy, cz), q, new THREE.Vector3(sx, sy, sz)));
-    if (!lists.has(mat)) lists.set(mat, []);
-    lists.get(mat).push(g);
-  };
-  const carMats = [0xe8e8e8, 0xb9bec6, 0x2b2f36, 0xc23b2e, 0x2456c8, 0xf2b705].map(c => new THREE.MeshLambertMaterial({ color: c }));
-  const carGlassMat = new THREE.MeshLambertMaterial({ color: 0x223140 });
-  const railMat = new THREE.MeshLambertMaterial({ color: 0xb9c0c7 });
-  const sigRed = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
-  const sigGreen = new THREE.MeshBasicMaterial({ color: 0x2aff5a });
-  const sigDark = new THREE.MeshLambertMaterial({ color: 0x1c1f24 });
-  let nSign = 0, nBoard = 0, nStore = 0, nVend = 0, nTank = 0, nAnt = 0;
-  const hosts = colliders.filter(c => !c.prop && !c.aux);
   for (const c of hosts) {
     const w = c.maxX - c.minX, d = c.maxZ - c.minZ;
     const cx = (c.minX + c.maxX) / 2, cz = (c.minZ + c.maxZ) / 2;

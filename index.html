@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v6.5（ホーム画面＝ロビーを追加）</title>
+<title>パルクール試作 v6.6（ロビーを刷新：アカウント/イベント/下部メニュー/コース選択画面）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -27,20 +27,30 @@
     color:#fff; font-size:22px; font-weight:bold; background:rgba(0,0,0,.55); padding:10px 22px; border-radius:16px; display:none; }
   #courseUI { position:absolute; inset:0; z-index:30; display:block;
     background:linear-gradient(180deg, rgba(5,10,16,.42), rgba(5,10,16,0) 26%, rgba(5,10,16,0) 58%, rgba(5,10,16,.5)); }
-  #lobbyTop { position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:flex-start; padding:14px 18px; }
-  #lobbyLogo { color:#fff; font-size:30px; font-weight:900; letter-spacing:1px; text-shadow:0 2px 8px rgba(0,0,0,.65); line-height:1.15; }
-  #lobbyLogo .logo-sub { font-size:12px; font-weight:bold; letter-spacing:2px; color:#ffcc00; }
-  #lobbyChips { display:flex; gap:8px; }
-  .chip { color:#fff; background:rgba(8,14,20,.72); border:1.5px solid rgba(255,255,255,.4); border-radius:999px; padding:7px 13px; font-size:13px; font-weight:bold; white-space:nowrap; }
-  #lobbyLeft { position:absolute; left:18px; bottom:78px; display:flex; flex-direction:column; gap:10px; width:212px; }
-  #btnStartRun { background:#ffcc00; color:#131a21; border:none; border-radius:14px; padding:17px 10px; font-size:22px; font-weight:900; box-shadow:0 4px 16px rgba(0,0,0,.45); cursor:pointer; }
-  #btnHowTo { background:rgba(8,14,20,.72); color:#fff; border:1.5px solid rgba(255,255,255,.45); border-radius:12px; padding:11px 10px; font-size:14px; font-weight:bold; cursor:pointer; }
-  #howtoPanel { display:none; background:rgba(8,14,20,.88); color:#fff; border:1.5px solid rgba(255,255,255,.35); border-radius:12px; padding:10px 12px; font-size:12px; line-height:1.75; }
-  #lobbyRight { position:absolute; right:18px; top:50%; transform:translateY(-50%); width:min(302px, 40%); }
-  .lobby-panel-title { color:#fff; font-size:13px; font-weight:bold; letter-spacing:2px; margin-bottom:2px; text-shadow:0 1px 4px rgba(0,0,0,.85); }
-  #lobbyBottom { position:absolute; left:0; right:0; bottom:0; text-align:center; padding-bottom:12px; pointer-events:none; }
-  #lobbyCharName { display:inline-block; color:#fff; background:rgba(8,14,20,.66); border:1.5px solid rgba(255,255,255,.4); border-radius:999px; padding:6px 20px; font-size:15px; font-weight:bold; }
-  #lobbyHint { color:#fff; font-size:12px; opacity:.94; margin-top:8px; text-shadow:0 1px 3px rgba(0,0,0,.9); }
+  #lobbyAccount { position:absolute; top:12px; left:14px; display:flex; align-items:center; gap:10px; background:rgba(8,14,20,.62); border:1.5px solid rgba(255,255,255,.35); border-radius:14px; padding:8px 14px 8px 8px; }
+  #lobbyAvatar { width:46px; height:46px; border-radius:50%; background:linear-gradient(145deg,#3f8cff,#7a4fe0); display:flex; align-items:center; justify-content:center; font-size:24px; border:2px solid rgba(255,255,255,.7); }
+  #lobbyName { color:#fff; font-size:16px; font-weight:900; line-height:1.2; }
+  #lobbyAccountSub { color:#ffcc00; font-size:11px; font-weight:bold; }
+  #lobbyLogoMini { position:absolute; top:14px; left:50%; transform:translateX(-50%); color:#fff; font-size:19px; font-weight:900; letter-spacing:1px; text-shadow:0 2px 8px rgba(0,0,0,.7); }
+  #lobbyIcons { position:absolute; top:12px; right:14px; display:flex; gap:8px; }
+  .icon-btn { width:44px; height:44px; border-radius:50%; background:rgba(8,14,20,.66); border:1.5px solid rgba(255,255,255,.4); color:#fff; font-size:19px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #lobbyEvents { position:absolute; left:14px; top:96px; width:min(252px, 34%); display:flex; flex-direction:column; gap:8px; }
+  .event-card { background:rgba(8,14,20,.68); border:1.5px solid rgba(255,255,255,.32); border-radius:12px; padding:9px 12px; color:#fff; }
+  .event-tag { display:inline-block; background:#e0483e; color:#fff; font-size:10px; font-weight:900; border-radius:6px; padding:2px 7px; margin-bottom:4px; }
+  .event-tag.soon { background:#5a6a7a; }
+  .event-title { font-size:14px; font-weight:900; }
+  .event-desc { font-size:11px; opacity:.88; margin-top:2px; line-height:1.5; }
+  #lobbyCharName { position:absolute; left:50%; bottom:88px; transform:translateX(-50%); color:#fff; background:rgba(8,14,20,.66); border:1.5px solid rgba(255,255,255,.4); border-radius:999px; padding:6px 20px; font-size:15px; font-weight:bold; white-space:nowrap; }
+  #lobbyBottomBar { position:absolute; left:0; right:0; bottom:0; display:flex; align-items:flex-end; padding:0 12px 10px; gap:6px; }
+  .lobby-menu-btn { flex:0 0 auto; width:74px; background:rgba(8,14,20,.72); border:1.5px solid rgba(255,255,255,.38); border-radius:12px; color:#fff; font-size:21px; padding:8px 0 6px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:1px; }
+  .lobby-menu-btn span { font-size:11px; font-weight:bold; }
+  #howtoPanel { position:absolute; left:12px; bottom:88px; width:250px; display:none; background:rgba(8,14,20,.92); color:#fff; border:1.5px solid rgba(255,255,255,.35); border-radius:12px; padding:10px 12px; font-size:12px; line-height:1.75; z-index:5; }
+  #lobbyStartWrap { margin-left:auto; text-align:center; }
+  #lobbyModeChip { display:inline-block; color:#fff; background:rgba(8,14,20,.66); border:1.5px solid rgba(255,255,255,.4); border-radius:10px; padding:5px 14px; font-size:13px; font-weight:bold; margin-bottom:6px; }
+  #btnStartRun { display:block; background:linear-gradient(180deg,#ffd94d,#ffbb00); color:#131a21; border:none; border-radius:14px; padding:18px 44px; font-size:24px; font-weight:900; box-shadow:0 4px 16px rgba(0,0,0,.5); cursor:pointer; }
+  #courseSelect { position:absolute; inset:0; z-index:35; display:none; align-items:center; justify-content:center; background:rgba(5,10,16,.55); }
+  #courseSelect .sel-card { width:min(430px, 88%); text-align:center; color:#fff; }
+  #btnSelectBack { margin-top:6px; background:rgba(8,14,20,.72); color:#fff; border:1.5px solid rgba(255,255,255,.45); border-radius:12px; padding:11px 26px; font-size:14px; font-weight:bold; cursor:pointer; }
   #app.lobby #map, #app.lobby #mapInfo, #app.lobby .btn, #app.lobby #courseBtn, #app.lobby #btnPause, #app.lobby #msg { display:none !important; }
   .course-card { text-align:center; color:#fff; width:min(420px, 86%); }
   .course-title { font-size:27px; font-weight:bold; margin-bottom:4px; }
@@ -55,7 +65,7 @@
   #resTime { font-size:36px; font-weight:bold; color:#ffcc00; margin:2px 0; }
   #resBest { font-size:15px; margin-bottom:8px; }
   #resSplits { font-size:13px; opacity:.9; line-height:1.7; margin-bottom:10px; }
-  #toast { position:absolute; top:21%; left:50%; transform:translateX(-50%); z-index:20; pointer-events:none;
+  #toast { position:absolute; top:21%; left:50%; transform:translateX(-50%); z-index:36; pointer-events:none;
     font-size:24px; font-weight:bold; color:#ffcc00; text-shadow:0 2px 6px rgba(0,0,0,.75); opacity:0; white-space:nowrap; }
   #toast.show { animation: toastA 1.25s ease forwards; }
   @keyframes toastA { 0% { opacity:0; transform:translateX(-50%) scale(.8); } 15% { opacity:1; transform:translateX(-50%) scale(1.06); }
@@ -91,27 +101,52 @@
 <body>
 <div id="app">
 <div id="courseUI">
-  <div id="lobbyTop">
-    <div id="lobbyLogo">TOKYO PARKOUR<div class="logo-sub">実在の街を駆ける ｜ パルクール試作</div></div>
-    <div id="lobbyChips">
-      <div class="chip">👤 ランナー</div>
-      <div class="chip" id="chipBest">🏆 記録なし</div>
+  <div id="lobbyAccount">
+    <div id="lobbyAvatar">🏃</div>
+    <div>
+      <div id="lobbyName">ランナー</div>
+      <div id="lobbyAccountSub">まだ記録がありません</div>
     </div>
   </div>
-  <div id="lobbyLeft">
-    <button id="btnStartRun">▶ スタート</button>
-    <button id="btnHowTo">❓ 遊び方</button>
-    <div id="howtoPanel">左スティック：移動<br>右ボタン：ジャンプ／スライディング／ダッシュ／ロール<br>画面ドラッグ：視点<br>壁のそばで空中ジャンプ連打：壁キック<br>縁に近づくと自動でつかむ。チェックポイントを5つ回ってゴール。</div>
+  <div id="lobbyLogoMini">TOKYO PARKOUR</div>
+  <div id="lobbyIcons">
+    <div class="icon-btn" id="btnMail">✉️</div>
+    <div class="icon-btn" id="btnBell">🔔</div>
   </div>
-  <div id="lobbyRight">
-    <div class="lobby-panel-title">コース選択</div>
+  <div id="lobbyEvents">
+    <div class="event-card">
+      <div class="event-tag">イベント開催中</div>
+      <div class="event-title">🏆 3コース制覇チャレンジ</div>
+      <div class="event-desc" id="eventProgress">全コースで記録を出そう！（0/3）</div>
+    </div>
+    <div class="event-card">
+      <div class="event-tag soon">予告</div>
+      <div class="event-title">🎰 スキンガチャ 近日公開</div>
+      <div class="event-desc">キャラのスキンはガチャで入手できるようになります。お楽しみに！</div>
+    </div>
+  </div>
+  <div id="lobbyCharName">🏃 ランナー</div>
+  <div id="howtoPanel">左スティック：移動<br>右ボタン：ジャンプ／スライディング／ダッシュ／ロール<br>画面ドラッグ：視点<br>壁のそばで空中ジャンプ連打：壁キック<br>縁に近づくと自動でつかむ。チェックポイントを5つ回ってゴール。</div>
+  <div id="lobbyBottomBar">
+    <button class="lobby-menu-btn" id="btnQuest">📜<span>クエスト</span></button>
+    <button class="lobby-menu-btn" id="btnGacha">🎰<span>ガチャ</span></button>
+    <button class="lobby-menu-btn" id="btnDress">👕<span>着せ替え</span></button>
+    <button class="lobby-menu-btn" id="btnShop">🛒<span>ショップ</span></button>
+    <button class="lobby-menu-btn" id="btnHowTo">❓<span>遊び方</span></button>
+    <div id="lobbyStartWrap">
+      <div id="lobbyModeChip">🏃 タイムアタック</div>
+      <button id="btnStartRun">▶ スタート</button>
+    </div>
+  </div>
+</div>
+<div id="courseSelect">
+  <div class="sel-card">
+    <div class="course-title">🗺 コース選択</div>
+    <div class="course-sub">走るコースを選んでください（タップでスタート）</div>
     <button class="course-btn" id="btnShibuya">🗼 渋谷<br><small>スクランブル交差点・屋根コース</small></button>
     <button class="course-btn" id="btnIkebukuro">🌃 池袋<br><small>駅前・高層ビル街コース</small></button>
     <button class="course-btn" id="btnShinjuku">🚃 新宿<br><small>東口・歌舞伎町コース</small></button>
-  </div>
-  <div id="lobbyBottom">
-    <div id="lobbyCharName">🏃 ランナー</div>
-    <div id="lobbyHint">コースを選んで「スタート」 ｜ ゴースト・ベストはコース別に保存されます</div>
+    <button id="btnSelectBack">← もどる</button>
   </div>
 </div>
 <button id="courseBtn">🗺 コース</button>
@@ -3151,6 +3186,7 @@ document.getElementById('btnRetry').addEventListener('click', () => {
 document.getElementById('btnCourse2').addEventListener('click', () => {
   document.getElementById('result').style.display = 'none';
   setLobby(true);
+  openSelect(true);
 });
 
 // ---- 一時停止 ----
@@ -3175,18 +3211,24 @@ function refreshCourseBests() {
     const b = parseFloat(store.get(k + '-touch-best') || '');
     small.textContent = small.dataset.desc + (isFinite(b) ? ' ・ベスト ' + b.toFixed(2) + '秒' : '');
   }
-  const chip = document.getElementById('chipBest');
-  if (chip) {
-    const bb = parseFloat(store.get(COURSE + '-touch-best') || '');
-    chip.textContent = '🏆 ' + (COURSE_NAMES[COURSE] || COURSE) + (isFinite(bb) ? ' ベスト ' + bb.toFixed(2) + '秒' : ' 記録なし');
+  const acc = document.getElementById('lobbyAccountSub');
+  if (acc) {
+    let sum = 0, cnt = 0;
+    for (const k of COURSE_ORDER) { const b = parseFloat(store.get(k + '-touch-best') || ''); if (isFinite(b)) { sum += b; cnt++; } }
+    acc.textContent = cnt ? 'ベスト合計 ' + sum.toFixed(2) + '秒（' + cnt + '/3コース）' : 'まだ記録がありません';
+  }
+  const ev = document.getElementById('eventProgress');
+  if (ev) {
+    let cnt = 0;
+    for (const k of COURSE_ORDER) { if (isFinite(parseFloat(store.get(k + '-touch-best') || ''))) cnt++; }
+    ev.textContent = '全コースで記録を出そう！（' + cnt + '/3）';
   }
   const nm = document.getElementById('lobbyCharName');
   if (nm) nm.textContent = '🏃 ランナー ｜ ' + (COURSE_NAMES[COURSE] || COURSE) + 'コース';
 }
 document.getElementById('btnNextCourse').addEventListener('click', async () => {
   document.getElementById('result').style.display = 'none';
-  await chooseCourse(nextCourseKey());
-  setLobby(false);
+  await selectAndStart(nextCourseKey());
 });
 
 // ---- コース選択 ----
@@ -3196,8 +3238,10 @@ function setLobby(v) {
   lobbyMode = v;
   courseUI.style.display = v ? 'block' : 'none';
   document.getElementById('app').classList.toggle('lobby', v);
+  openSelect(false);
   if (v) fixLobbyPlayer();
 }
+function openSelect(v) { document.getElementById('courseSelect').style.display = v ? 'flex' : 'none'; }
 // ロビー中は物理が回らずスポーンの沈み込みが直らないので、足元の屋根の高さに合わせ直す
 function fixLobbyPlayer() {
   if (!colliders.length) return;
@@ -3213,26 +3257,33 @@ function fixLobbyPlayer() {
 }
 document.getElementById('courseName').textContent = COURSE_NAMES[COURSE] || COURSE;
 document.getElementById({ shibuya: 'btnShibuya', ikebukuro: 'btnIkebukuro', shinjuku: 'btnShinjuku' }[COURSE]).classList.add('sel');
-async function chooseCourse(c) {
+async function selectAndStart(c) {
   if (building) return;
-  if (c === COURSE) return; // ロビーでは選択だけ。スタートは専用ボタンで
-  store.set('parkour-course', c);
-  await buildCourse(c);
-  refreshCourseBests();
-}
-document.getElementById('btnShibuya').addEventListener('click', () => chooseCourse('shibuya'));
-document.getElementById('btnIkebukuro').addEventListener('click', () => chooseCourse('ikebukuro'));
-document.getElementById('btnShinjuku').addEventListener('click', () => chooseCourse('shinjuku'));
-document.getElementById('courseBtn').addEventListener('click', () => { flyover = null; setLobby(true); });
-document.getElementById('btnStartRun').addEventListener('click', () => {
-  if (building || !built) return;
+  if (c !== COURSE) {
+    store.set('parkour-course', c);
+    await buildCourse(c);
+    refreshCourseBests();
+  }
+  openSelect(false);
   setLobby(false);
   if (flyover) showToast('ルート確認中…（画面タップでスキップ）');
-});
+}
+document.getElementById('btnShibuya').addEventListener('click', () => selectAndStart('shibuya'));
+document.getElementById('btnIkebukuro').addEventListener('click', () => selectAndStart('ikebukuro'));
+document.getElementById('btnShinjuku').addEventListener('click', () => selectAndStart('shinjuku'));
+document.getElementById('courseBtn').addEventListener('click', () => { flyover = null; setLobby(true); });
+document.getElementById('btnStartRun').addEventListener('click', () => { if (!building && built) openSelect(true); });
+document.getElementById('btnSelectBack').addEventListener('click', () => openSelect(false));
 document.getElementById('btnHowTo').addEventListener('click', () => {
   const p = document.getElementById('howtoPanel');
   p.style.display = p.style.display === 'block' ? 'none' : 'block';
 });
+document.getElementById('btnGacha').addEventListener('click', () => showToast('🎰 ガチャは近日公開！'));
+document.getElementById('btnDress').addEventListener('click', () => showToast('👕 着せ替えは近日公開！（スキンはガチャで入手）'));
+document.getElementById('btnShop').addEventListener('click', () => showToast('🛒 ショップは近日公開！'));
+document.getElementById('btnQuest').addEventListener('click', () => showToast('📜 クエストは近日公開！'));
+document.getElementById('btnMail').addEventListener('click', () => showToast('✉️ お知らせはまだありません'));
+document.getElementById('btnBell').addEventListener('click', () => showToast('🔔 通知はまだありません'));
 
 const clock = new THREE.Clock();
 let physAcc = 0;

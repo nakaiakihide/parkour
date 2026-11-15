@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v6.0（建物の見た目を安定化）</title>
+<title>パルクール試作 v6.1（透明な壁と足のめり込みを修正）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -273,10 +273,10 @@ const colliders = []; // {minX,maxX,minZ,maxZ,top}
 const facadeTints = [0xffffff, 0xf3e9d7, 0xdfe7ef, 0xe9e3d3, 0xd9dfe8];
 const buildingMats = [];
 for (const tex of [facadeTex, facadeTexB, facadeTexC])
-  for (const c of facadeTints) buildingMats.push(new THREE.MeshLambertMaterial({ color: c, map: tex }));
+  for (const c of facadeTints) buildingMats.push(new THREE.MeshLambertMaterial({ color: c, map: tex, side: THREE.DoubleSide }));
 const roofMat = new THREE.MeshLambertMaterial({ map: roofTex });
-const roofMats = [0xffffff, 0xccd0d4, 0xbdb2a2].map(c => new THREE.MeshLambertMaterial({ color: c, map: roofTex }));
-const slopeMats = [0x6e5b4c, 0x5d646e].map(c => new THREE.MeshLambertMaterial({ color: c, map: roofTex })); // 勾配屋根用
+const roofMats = [0xffffff, 0xccd0d4, 0xbdb2a2].map(c => new THREE.MeshLambertMaterial({ color: c, map: roofTex, side: THREE.DoubleSide }));
+const slopeMats = [0x6e5b4c, 0x5d646e].map(c => new THREE.MeshLambertMaterial({ color: c, map: roofTex, side: THREE.DoubleSide })); // 勾配屋根用
 const wallPlainTex = canvasTex([128, 128], (g, w, h) => {
   g.fillStyle = '#c9ccd1'; g.fillRect(0, 0, w, h);
   speckle(g, w, h, 500, 0.05);
@@ -344,6 +344,12 @@ function addBuilding(points, height, surfs) {
   const sx = Math.max(0, Math.min(3, Math.floor(((minX + maxX) / 2 + 400) / 200)));
   const sz = Math.max(0, Math.min(3, Math.floor(((minZ + maxZ) / 2 + 400) / 200)));
   const key = (sz * 4 + sx) * 16 + mi;
+  if (surfs) {
+    // LOD2の頂部が箱の高さと0.35m以上ずれる建物は、足がめり込む/浮くので実形状を使わない
+    let sTop = 0;
+    for (const [, ring] of surfs) for (const p of ring) if (p[1] > sTop) sTop = p[1];
+    if (Math.abs(sTop - height) > 0.35) surfs = null;
+  }
   if (surfs) {
     // PLATEAU LOD2: 屋根・壁の実形状サーフェスで描く（当たり判定は従来の箱のまま）
     const cxm = (minX + maxX) / 2, czm = (minZ + maxZ) / 2;

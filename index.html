@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>パルクール試作 v6.11（スキンガチャ演出／キャラ初期デザイン反映）</title>
+<title>パルクール試作 v6.12（ガチャ演出を確定動画版に合わせて改修）</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#87b5d6;
     touch-action:none; -webkit-user-select:none; user-select:none; height:100%; }
@@ -3526,6 +3526,22 @@ function gachaGlowTex() {
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(cv);
 }
+function gachaOrbPanelTex(emissive) {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256;
+  const g = cv.getContext('2d');
+  const cols = [0, 70, 150, 256, 340, 430, 512], rows = [0, 86, 170, 256];
+  if (emissive) { g.fillStyle = '#000000'; g.fillRect(0, 0, 512, 256); g.strokeStyle = '#7df3ff'; }
+  else { g.fillStyle = '#c9d4e2'; g.fillRect(0, 0, 512, 256); g.strokeStyle = '#39424f'; }
+  g.lineWidth = emissive ? 7 : 5;
+  for (let i = 0; i < cols.length; i++) { g.beginPath(); g.moveTo(cols[i], 0); g.lineTo(cols[i], 256); g.stroke(); }
+  for (let i = 0; i < rows.length; i++) { g.beginPath(); g.moveTo(0, rows[i]); g.lineTo(512, rows[i]); g.stroke(); }
+  if (!emissive) {
+    g.fillStyle = 'rgba(70,84,104,0.18)';
+    for (let i = 0; i < cols.length - 1; i += 2) for (let j = 0; j < rows.length - 1; j++) g.fillRect(cols[i] + 3, rows[j] + 3, cols[i + 1] - cols[i] - 6, rows[j + 1] - rows[j] - 6);
+  }
+  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace;
+  return tx;
+}
 const P_MAX = 360;
 const _pPos = new Float32Array(P_MAX * 3), _pCol = new Float32Array(P_MAX * 3), _pBase = new Float32Array(P_MAX * 3);
 const _pVel = new Float32Array(P_MAX * 3), _pLife = new Float32Array(P_MAX), _pMax = new Float32Array(P_MAX), _pGrav = new Float32Array(P_MAX);
@@ -3540,13 +3556,21 @@ function spawnP(x, y, z, vx, vy, vz, life, grav, hex) {
 }
 function buildGacha() {
   const sc = new THREE.Scene();
-  sc.background = new THREE.Color(0x0a1428);
-  sc.fog = new THREE.Fog(0x0a1428, 30, 150);
+  { // 夕暮れのグラデーション空（動画版カット01準拠）
+    const cv = document.createElement('canvas'); cv.width = 2; cv.height = 512;
+    const g = cv.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, 512);
+    gr.addColorStop(0, '#1d2653'); gr.addColorStop(0.45, '#3d3a6e'); gr.addColorStop(0.72, '#6d4f86'); gr.addColorStop(0.9, '#b06a8c'); gr.addColorStop(1, '#c97e90');
+    g.fillStyle = gr; g.fillRect(0, 0, 2, 512);
+    const bg = new THREE.CanvasTexture(cv); bg.colorSpace = THREE.SRGBColorSpace;
+    sc.background = bg;
+  }
+  sc.fog = new THREE.Fog(0x3b4470, 30, 150);
   GACHA.scene = sc;
   GACHA.cam = new THREE.PerspectiveCamera(58, GW() / GH(), 0.1, 400);
-  sc.add(new THREE.HemisphereLight(0x8fb8ff, 0x1a2030, 0.6));
-  const moon = new THREE.DirectionalLight(0xaac8ff, 0.85);
-  moon.position.set(30, 42, -8); sc.add(moon);
+  sc.add(new THREE.HemisphereLight(0xa8c4ff, 0x40364a, 0.8));
+  const moon = new THREE.DirectionalLight(0xffd2a0, 0.75);
+  moon.position.set(-25, 14, -30); sc.add(moon);
   // 星空
   {
     const n = 420, pos = new Float32Array(n * 3);
@@ -3559,7 +3583,7 @@ function buildGacha() {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xcfe4ff, size: 0.9, sizeAttenuation: false, fog: false }));
+    const stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xcfe4ff, size: 0.9, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.3 }));
     sc.add(stars);
   }
   // 街並み（窓が光るビル群）
@@ -3586,7 +3610,7 @@ function buildGacha() {
     const sign2 = new THREE.Mesh(new THREE.PlaneGeometry(11, 5.5), new THREE.MeshBasicMaterial({ map: gachaSignTex('SHIBUYA', '#35e0ff'), transparent: true }));
     sign2.position.set(15.5, 15, -33); sc.add(sign2);
   }
-  const platMat = new THREE.MeshLambertMaterial({ color: 0x39415a });
+  const platMat = new THREE.MeshLambertMaterial({ color: 0x49536f });
   const edgeMat = new THREE.MeshBasicMaterial({ color: 0x1fb9d8 });
   function platform(w, d, x, z) {
     const p = new THREE.Mesh(new THREE.BoxGeometry(w, 3, d), platMat);
@@ -3613,25 +3637,37 @@ function buildGacha() {
     r.rotation.x = -Math.PI / 2; r.position.set(0, 0.05, -23.5); sc.add(r); rings.push(r);
   }
   GACHA.rings = rings;
-  // オーブ
+  // 台座（動画版カット01：玉は台座の上から発射される）
+  {
+    const ped = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.58, 0.16, 20), new THREE.MeshLambertMaterial({ color: 0x2c3448 }));
+    base.position.y = 0.08; ped.add(base);
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.21, 0.3, 14), new THREE.MeshLambertMaterial({ color: 0x3a4358 }));
+    col.position.y = 0.31; ped.add(col);
+    const pring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.028, 10, 32), new THREE.MeshBasicMaterial({ color: 0x35e0ff }));
+    pring.rotation.x = Math.PI / 2; pring.position.y = 0.47; ped.add(pring);
+    ped.position.set(0, 0, -8.6); sc.add(ped);
+    GACHA.pedestal = ped; GACHA.pedRing = pring;
+  }
+  // オーブ（動画版準拠：直径約0.3m、金属セグメント＋発光シームの近未来スフィア）
   const orb = new THREE.Group();
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.30, 20, 16), new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.105, 20, 16), new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
   orb.add(core);
-  const shellMat = new THREE.MeshLambertMaterial({ color: 0xdfe8f2, emissive: 0x2a3648 });
-  const top = new THREE.Mesh(new THREE.SphereGeometry(0.38, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), shellMat);
-  const bot = new THREE.Mesh(new THREE.SphereGeometry(0.38, 24, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), shellMat);
+  const shellMat = new THREE.MeshLambertMaterial({ map: gachaOrbPanelTex(false), emissive: 0x35e0ff, emissiveMap: gachaOrbPanelTex(true) });
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.15, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), shellMat);
+  const bot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 24, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), shellMat);
   orb.add(top); orb.add(bot);
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.035, 10, 32), new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.012, 10, 32), new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
   band.rotation.x = Math.PI / 2; orb.add(band);
-  const light = new THREE.PointLight(0x22d3ee, 60, 26, 1.8);
+  const light = new THREE.PointLight(0x22d3ee, 45, 24, 1.8);
   orb.add(light);
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: gachaGlowTex(), color: 0x22d3ee, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
-  glow.scale.set(3.0, 3.0, 1); orb.add(glow);
-  orb.position.set(0, 2.5, -12.2);
+  glow.scale.set(1.15, 1.15, 1); orb.add(glow);
+  orb.position.set(0, 0.62, -8.6);
   sc.add(orb);
-  GACHA.orb = orb; GACHA.orbCore = core; GACHA.orbTop = top; GACHA.orbBot = bot; GACHA.orbBand = band; GACHA.orbLight = light; GACHA.orbGlow = glow;
+  GACHA.orb = orb; GACHA.orbCore = core; GACHA.orbTop = top; GACHA.orbBot = bot; GACHA.orbBand = band; GACHA.orbLight = light; GACHA.orbGlow = glow; GACHA.orbShellMat = shellMat;
   // 光の柱（オープン時）
-  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.85, 7, 18, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe98a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 7, 18, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe98a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
   pillar.position.set(0, 3.5, -23.5); sc.add(pillar);
   GACHA.pillar = pillar;
   // キャラ2人＋報酬フィギュア
@@ -3674,6 +3710,7 @@ function gachaSetPose(h, p) {
 }
 function gachaSetOrbColor(hex) {
   GACHA.orbCore.material.color.setHex(hex);
+  if (GACHA.orbShellMat) GACHA.orbShellMat.emissive.setHex(hex);
   GACHA.orbBand.material.color.setHex(hex);
   GACHA.orbLight.color.setHex(hex);
   GACHA.orbGlow.material.color.setHex(hex);
@@ -3688,14 +3725,14 @@ function resetGachaStage() {
   const pp = gachaPartnerPos(0); GACHA.partnerH.g.position.set(pp.x, pp.y + 0.93, pp.z);
   gachaSetPose(GACHA.mainH, POSE_IDLE); gachaSetPose(GACHA.partnerH, POSE_IDLE);
   GACHA.orb.visible = true;
-  GACHA.orb.position.set(0, 2.5, -12.2);
+  GACHA.orb.position.set(0, 0.62, -8.6);
   GACHA.orbTop.position.y = 0; GACHA.orbBot.position.y = 0; GACHA.orbTop.rotation.z = 0;
   gachaSetOrbColor(0x22d3ee);
   GACHA.pillar.material.opacity = 0;
   GACHA.figWrap.visible = false; GACHA.figWrap.position.y = 0; GACHA.figWrap.rotation.y = 0;
   GACHA.rings.forEach(r => { r.material.opacity = 0; });
   if (GACHA.flashEl) GACHA.flashEl.style.opacity = '0';
-  GACHA.orbLight.intensity = 60; GACHA.orbGlow.scale.set(3.0, 3.0, 1);
+  GACHA.orbLight.intensity = 45; GACHA.orbGlow.scale.set(1.15, 1.15, 1);
   for (let i = 0; i < P_MAX; i++) { _pLife[i] = 0; _pPos[i * 3 + 1] = -999; }
   GACHA.pGeo.attributes.position.needsUpdate = true;
   gachaCamAt(0);
@@ -3729,8 +3766,9 @@ function updateGacha(dt) {
     gachaPoseTo(GACHA.mainH, GACHA.phase === 'result' ? POSE_STAND : POSE_IDLE, dt);
     gachaPoseTo(GACHA.partnerH, GACHA.phase === 'result' ? POSE_STAND : POSE_IDLE, dt);
     if (GACHA.phase === 'tap') {
-      GACHA.orb.position.y = 2.5 + Math.sin(now * 1.8) * 0.16;
-      GACHA.orb.rotation.y += dt * 0.7;
+      GACHA.orb.position.set(0, 0.62 + Math.sin(now * 1.8) * 0.015, -8.6);
+      GACHA.orb.rotation.y += dt * 0.5;
+      if (GACHA.pedRing) GACHA.pedRing.material.color.setHSL(0.52, 1, 0.45 + Math.sin(now * 2.4) * 0.13);
       gachaCamAt(0);
       GACHA.cam.position.x += Math.sin(now * 0.4) * 0.35;
       GACHA.cam.lookAt(0, 1.3, 0);
@@ -3752,15 +3790,24 @@ function updateGacha(dt) {
   GACHA.t += dt;
   const t = GACHA.t, pt = GACHA.prevT;
   const crossed = th => pt < th && t >= th;
-  const mp = gachaMainPos(t);
+  const INTRO = 1.25; // 導入（台座チャージ→発射→ホバリング）ぶん既存時系列をずらす
+  const lt = t - INTRO;
+  const crossedL = th => (pt - INTRO) < th && lt >= th;
+  const mp = gachaMainPos(Math.max(0, lt));
   GACHA.mainH.g.position.set(mp.x, mp.y + 0.93, mp.z);
-  gachaPoseTo(GACHA.mainH, gachaPoseFor(t, true), dt);
-  const pp = gachaPartnerPos(t);
+  gachaPoseTo(GACHA.mainH, lt < 0 ? (t < 0.7 ? POSE_IDLE : POSE_CROUCH) : gachaPoseFor(lt, true), dt);
+  const pp = gachaPartnerPos(Math.max(0, lt));
   GACHA.partnerH.g.position.set(pp.x, pp.y + 0.93, pp.z);
-  gachaPoseTo(GACHA.partnerH, gachaPoseFor(t - 0.15, false), dt);
-  gachaCamAt(t);
+  gachaPoseTo(GACHA.partnerH, lt < 0 ? (t < 0.7 ? POSE_IDLE : POSE_CROUCH) : gachaPoseFor(lt - 0.15, false), dt);
+  if (lt < 0) {
+    const u = Math.max(0, t / INTRO);
+    gachaCamAt(0);
+    GACHA.cam.position.y -= 0.35 * u;
+    GACHA.cam.position.z -= 2.2 * u;
+    GACHA.cam.lookAt(GACHA.orb.position.x, GACHA.orb.position.y + 0.1, GACHA.orb.position.z);
+  } else gachaCamAt(lt);
   // 足元の光の軌跡
-  if (t < 3.9) {
+  if (lt > 0 && lt < 3.9) {
     _trailAcc += dt * 34;
     while (_trailAcc > 1) {
       _trailAcc -= 1;
@@ -3769,17 +3816,31 @@ function updateGacha(dt) {
     }
   }
   // オーブの振る舞い
-  if (t < 3.45) {
+  if (t < 0.7) {
+    // 導入1: 台座の上でチャージ（脈動＋震え＋グロー拡大）
+    const u = t / 0.7;
+    GACHA.orb.position.set((Math.random() - 0.5) * 0.02 * u, 0.62, -8.6 + (Math.random() - 0.5) * 0.02 * u);
+    GACHA.orb.rotation.y += dt * (1 + u * 6);
+    GACHA.orbLight.intensity = 45 + u * 130;
+    const gs = 1.15 + u * 1.5; GACHA.orbGlow.scale.set(gs, gs, 1);
+  } else if (t < INTRO) {
+    // 導入2: 発射——台座から前方ホバリング位置へ短距離ダート
+    const u = (t - 0.7) / (INTRO - 0.7), s = u * u;
+    GACHA.orb.position.set(0, 0.62 + (2.5 - 0.62) * s + Math.sin(u * Math.PI) * 0.9, -8.6 + (-12.2 + 8.6) * s);
+    GACHA.orb.rotation.y += dt * 14;
+    if (Math.random() < dt * 40) spawnP(GACHA.orb.position.x, GACHA.orb.position.y, GACHA.orb.position.z, (Math.random() - 0.5) * 0.6, -0.4, (Math.random() - 0.5) * 0.6, 0.4, 0, 0x35e0ff);
+  } else if (lt < 3.45) {
     GACHA.orb.position.set(0, 2.5 + Math.sin(now * 2.2) * 0.13, -12.2);
     GACHA.orb.rotation.y += dt * 1.1;
-  } else if (t < 4.6) {
+    if (lt < 0.35) { const gs = Math.max(1.15, 2.65 - lt * 4.3); GACHA.orbGlow.scale.set(gs, gs, 1); GACHA.orbLight.intensity = Math.max(45, 175 - lt * 370); }
+  } else if (lt < 4.6) {
     GACHA.orb.visible = false;
-  } else if (t < 5.8) {
+  } else if (lt < 5.8) {
     GACHA.orb.visible = true;
-    GACHA.orb.position.set(0, 0.8 + Math.sin(now * 3) * 0.045, -23.5);
+    GACHA.orb.position.set(0, 0.42 + Math.sin(now * 3) * 0.03, -23.5);
     GACHA.orb.rotation.y += dt * 2.6;
     GACHA.rings.forEach((r, i) => {
-      const ph = ((t - 4.6) * 0.85 + i / 3) % 1;
+      const ph = ((lt - 4.6) * 0.85 + i / 3) % 1;
       r.scale.setScalar(1 + ph * 1.7);
       r.material.opacity = (1 - ph) * 0.65;
     });
@@ -3787,20 +3848,20 @@ function updateGacha(dt) {
       const a = Math.random() * Math.PI * 2;
       spawnP(Math.cos(a) * 1.25, 0.12, -23.5 + Math.sin(a) * 1.25, 0, 0.85, 0, 1.05, -0.25, 0x22d3ee);
     }
-  } else if (t < 6.8) {
+  } else if (lt < 6.8) {
     // カット7: アイテム出現ではなく、光が画面全体を包む（ユーザー指定）
-    const u = Math.min(1, (t - 5.8) / 1.0), s = u * u * (3 - 2 * u);
-    GACHA.orbTop.position.y = 0.62 * s;
-    GACHA.orbBot.position.y = -0.62 * s;
+    const u = Math.min(1, (lt - 5.8) / 1.0), s = u * u * (3 - 2 * u);
+    GACHA.orbTop.position.y = 0.16 * s;
+    GACHA.orbBot.position.y = -0.16 * s;
     GACHA.orbTop.rotation.z = 0.5 * s;
     GACHA.pillar.material.opacity = 0.55 * s;
-    const fl = t < 6.25 ? (t - 5.8) / 0.45 : Math.max(0, 1 - (t - 6.25) / 0.95);
+    const fl = lt < 6.25 ? (lt - 5.8) / 0.45 : Math.max(0, 1 - (lt - 6.25) / 0.95);
     GACHA.flashEl.style.opacity = String(Math.min(1, fl));
-    GACHA.orbLight.intensity = 60 + fl * 320;
-    const gs = 3.0 + fl * 13;
+    GACHA.orbLight.intensity = 45 + fl * 300;
+    const gs = 1.15 + fl * 7;
     GACHA.orbGlow.scale.set(gs, gs, 1);
-    if (t >= 6.45) { // 光の中からフィギュアが浮かび上がる
-      const u2 = Math.min(1, (t - 6.45) / 0.7), s2 = u2 * u2 * (3 - 2 * u2);
+    if (lt >= 6.45) { // 光の中からフィギュアが浮かび上がる
+      const u2 = Math.min(1, (lt - 6.45) / 0.7), s2 = u2 * u2 * (3 - 2 * u2);
       GACHA.figWrap.visible = true;
       GACHA.figWrap.position.y = 1.25 * s2;
       GACHA.figWrap.rotation.y += dt * 1.5;
@@ -3811,29 +3872,32 @@ function updateGacha(dt) {
     GACHA.figWrap.rotation.y += dt * 0.8;
   }
   // タイミングイベント（音と閃光）
-  if (crossed(2.6)) {
+  if (crossed(0.03)) tone(160, 880, 0.62, 'sine', 0.02);
+  if (crossed(0.7)) { tone(480, 1560, 0.3, 'triangle', 0.045); gachaBurst(0, 0.7, -8.6, 22, 0x35e0ff, 2.4, 0.55); }
+  if (crossed(INTRO)) { gachaBurst(0, 2.5, -12.2, 26, 0x35e0ff, 2.6, 0.6); tone(1180, 1180, 0.08, 'triangle', 0.04); }
+  if (crossedL(2.6)) {
     tone(320, 230, 0.1, 'sawtooth', 0.02);
     gachaBurst(1.45, 1.6, -6.5, 16, 0xffd98a, 2.2, 0.6);
   }
-  if (crossed(3.45)) {
+  if (crossedL(3.45)) {
     gachaBurst(0, 2.5, -12.2, 26, 0x22d3ee, 2.6, 0.7);
     tone(880, 880, 0.07, 'triangle', 0.05); tone(1318, 1318, 0.11, 'triangle', 0.05, 0.07);
   }
-  if (crossed(4.6)) {
+  if (crossedL(4.6)) {
     tone(140, 70, 0.09, 'sine', 0.06);
     gachaSetOrbColor(0x22d3ee);
   }
-  if (crossed(5.0)) tone(420, 1250, 0.75, 'sine', 0.028);
-  if (crossed(5.8)) {
+  if (crossedL(5.0)) tone(420, 1250, 0.75, 'sine', 0.028);
+  if (crossedL(5.8)) {
     const col = RARITY_COLOR[GACHA.roll.rarity];
     gachaSetOrbColor(col);
     { const cc = gachaCss(col); GACHA.flashEl.style.background = 'radial-gradient(circle at 50% 58%, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 26%, ' + cc + ' 58%, rgba(0,0,0,0) 78%)'; }
     syncMats(GACHA.figMats, GACHA.roll);
-    gachaBurst(0, 1.1, -23.5, 80, col, 3.6, 1.0);
+    gachaBurst(0, 0.7, -23.5, 80, col, 3.6, 1.0);
     if (GACHA.roll.rarity === 'R') { tone(880, 880, 0.09, 'triangle', 0.05); tone(1174, 1174, 0.12, 'triangle', 0.05, 0.09); }
     else { [660, 880, 1108, 1318, 1760].forEach((f, i) => tone(f, f, 0.13, 'triangle', 0.05, i * 0.085)); }
   }
-  if (t >= 7.2) { showGachaResult(); return; }
+  if (lt >= 7.2) { showGachaResult(); return; }
   gachaUpdateParticles(dt);
 }
 GACHA.update = updateGacha;
@@ -3890,13 +3954,13 @@ function showGachaResult() {
 }
 function gachaSkip() {
   if (GACHA.phase !== 'play') return;
-  GACHA.t = 7.2;
+  GACHA.t = 1.25 + 7.2;
   const col = RARITY_COLOR[GACHA.roll.rarity];
   gachaSetOrbColor(col);
   syncMats(GACHA.figMats, GACHA.roll);
   GACHA.orb.visible = true;
-  GACHA.orb.position.set(0, 0.8, -23.5);
-  GACHA.orbTop.position.y = 0.62; GACHA.orbBot.position.y = -0.62; GACHA.orbTop.rotation.z = 0.5;
+  GACHA.orb.position.set(0, 0.42, -23.5);
+  GACHA.orbTop.position.y = 0.16; GACHA.orbBot.position.y = -0.16; GACHA.orbTop.rotation.z = 0.5;
   GACHA.pillar.material.opacity = 0.5;
   GACHA.figWrap.visible = true; GACHA.figWrap.position.y = 1.25;
   const mp = gachaMainPos(7.2); GACHA.mainH.g.position.set(mp.x, mp.y + 0.93, mp.z);
